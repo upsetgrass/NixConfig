@@ -25,6 +25,13 @@ vim.opt.undofile = true
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", { silent = true })
 vim.keymap.set("n", "<leader>w", "<cmd>write<CR>", { silent = true })
 vim.keymap.set("n", "<leader>q", "<cmd>quitall<CR>", { silent = true })
+vim.api.nvim_create_autocmd("BufWritePre", {
+  callback = function()
+    local view = vim.fn.winsaveview()
+    vim.cmd([[silent keepjumps keeppatterns %s/\s\+$//e]])
+    vim.fn.winrestview(view)
+  end,
+})
 vim.cmd([[
   cnoreabbrev <expr> q getcmdtype() ==# ':' && getcmdline() ==# 'q' ? 'qa' : 'q'
   cnoreabbrev <expr> qw getcmdtype() ==# ':' && getcmdline() ==# 'qw' ? 'wqa' : 'qw'
