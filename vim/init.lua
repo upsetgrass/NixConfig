@@ -37,10 +37,37 @@ require("nvim-tree").setup({
   view = { side = "left" },
   renderer = { add_trailing = true, icons = { show = { file = false, folder = false, folder_arrow = false, git = false } } },
   trash = { cmd = "gio trash" },
+  on_attach = function(bufnr)
+    local api = require("nvim-tree.api")
+    api.config.mappings.default_on_attach(bufnr)
+    for _, key in ipairs({ "d", "<Del>" }) do
+      vim.keymap.set({ "n", "x" }, key, api.fs.trash, {
+        buffer = bufnr, silent = true, desc = "Move to trash",
+      })
+    end
+    vim.keymap.set("n", "bd", api.marks.bulk.trash, {
+      buffer = bufnr, silent = true, desc = "Move bookmarked files to trash",
+    })
+  end,
 })
 vim.keymap.set("n", "<leader>e", "<cmd>NvimTreeToggle<CR>", { desc = "Toggle project tree" })
 vim.keymap.set("n", "<leader>E", "<cmd>NvimTreeFindFile<CR>", { desc = "Reveal current file" })
 vim.keymap.set("n", "<leader>ef", "<cmd>NvimTreeFocus<CR>", { desc = "Focus project tree" })
+
+require("gitsigns").setup({
+  numhl = true,
+  current_line_blame = true,
+  current_line_blame_opts = { delay = 600, virt_text_pos = "eol" },
+  on_attach = function(bufnr)
+    local gs = require("gitsigns")
+    local opts = { buffer = bufnr, silent = true }
+    vim.keymap.set("n", "]h", gs.next_hunk, vim.tbl_extend("force", opts, { desc = "Next Git change" }))
+    vim.keymap.set("n", "[h", gs.prev_hunk, vim.tbl_extend("force", opts, { desc = "Previous Git change" }))
+    vim.keymap.set("n", "<leader>gp", gs.preview_hunk, vim.tbl_extend("force", opts, { desc = "Preview Git change" }))
+    vim.keymap.set("n", "<leader>gb", function() gs.blame_line({ full = true }) end,
+      vim.tbl_extend("force", opts, { desc = "Show Git blame" }))
+  end,
+})
 
 vim.g.project_history_no_data_notified = 1
 require("project").setup({
@@ -190,7 +217,13 @@ vim.keymap.set("n", "<leader>i", function()
   Snacks.image.hover()
 end, { desc = "Preview image under cursor" })
 
+local personal_help_win
 local function show_personal_help()
+  if personal_help_win and vim.api.nvim_win_is_valid(personal_help_win) then
+    vim.api.nvim_win_close(personal_help_win, true)
+    personal_help_win = nil
+    return
+  end
   local path = vim.fn.expand("~/nix/vim/help.md")
   if vim.fn.filereadable(path) == 0 then
     vim.notify("Help file not found: " .. path, vim.log.levels.WARN)
@@ -211,13 +244,21 @@ local function show_personal_help()
     row = math.floor((vim.o.lines - height) / 2 - 1),
     col = math.floor((vim.o.columns - width) / 2), width = width, height = height,
   })
+  personal_help_win = win
   vim.wo[win].wrap = true
   vim.wo[win].conceallevel = 2
   for _, key in ipairs({ "q", "<Esc>" }) do
     vim.keymap.set("n", key, "<cmd>close<CR>", { buffer = buf, silent = true })
   end
+  vim.keymap.set("n", "<leader>h", show_personal_help, {
+    buffer = buf, silent = true, desc = "Close personal Vim help",
+  })
+  vim.api.nvim_create_autocmd("WinClosed", {
+    pattern = tostring(win), once = true,
+    callback = function() personal_help_win = nil end,
+  })
 end
-vim.keymap.set("n", "<leader>h", show_personal_help, { desc = "Show personal Vim help" })
+vim.keymap.set("n", "<leader>h", show_personal_help, { desc = "Toggle personal Vim help" })
 
 local session_dir = vim.env.NVIM_NIX_SESSION_DIR or vim.fn.expand("~/nix/vim/state/sessions")
 local last_code_file
