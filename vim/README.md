@@ -88,9 +88,9 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 
 ## 终端和其他命令
 
-按 `<leader>tt` 打开浮动 shell，直接运行 `ls`、`make`、`git status` 等命令。终端中的 `Esc` 会传给正在运行的程序；需要回到外层 Neovim 时按 `Ctrl-]`，然后按 `<leader>tt` 关闭终端。`:ToggleTerm` 也可开关。
+按 `<leader>tt` 打开浮动 shell，运行 `ls`、`make`、`git status` 等简单命令。终端中的 `Esc` 会传给正在运行的程序；按 `Ctrl-]` 回到外层普通模式，再按 `<leader>tt` 关闭浮窗。
 
-运行 `git commit` 时，Git 会在这个终端里启动另一层由本 Nix shell 配置的 `vim`。在提交信息编辑器中正常使用 `i` 输入、`Esc` 返回普通模式、`:wq` 保存退出，随后 Git 完成提交并回到浮动 shell。不要在提交信息编辑器未退出时关闭浮动终端；提交信息文件不会覆盖项目会话恢复记录。这个 shell 把 `EDITOR`、`VISUAL` 和 `GIT_EDITOR` 指向 `vim`。
+需要完整的交互式 shell（例如执行 `git commit`）时输入 `:shell`。提交信息编辑完成后用 `:wq` 退出编辑器，回到 shell 后输入 `exit` 返回原 Neovim。`VIMINIT` 在本配置启动时被清除，避免系统 Vim 误执行 Neovim 的 Lua 配置。
 
 ## LSP 服务器
 
