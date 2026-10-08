@@ -81,6 +81,7 @@ pkgs.mkShell {
     unalias vim 2>/dev/null || true
     unset -f vim 2>/dev/null || true
     hash -r
+    export EDITOR=vim VISUAL=vim GIT_EDITOR=vim
     echo "nvim-nix shell: vim -> ${neovim}/bin/nvim"
   '';
 }

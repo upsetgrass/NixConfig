@@ -20,6 +20,7 @@ vim 文件名
 | `<leader>g` | fzf 搜索项目文本 |
 | `<leader>fc` | 切换 fzf 文件名匹配的大小写模式 |
 | `<leader>tt` | 打开/关闭浮动终端 |
+| 终端内 `Ctrl-]` | 返回外层 Neovim 普通模式；再按 `<leader>tt` 关闭终端 |
 | `<leader>h` | 打开/关闭 `~/nix/vim/help.md` 帮助浮窗 |
 | 项目树 `a` | 新增文件或目录（目录名以 `/` 结尾） |
 | 项目树 `r` | 重命名选中文件或目录 |
@@ -87,7 +88,9 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 
 ## 终端和其他命令
 
-按 `<leader>tt` 可在不退出 Neovim 的情况下打开 shell；在终端窗口中直接输入任意命令。按 `Esc` 回到普通模式，再按 `q` 关闭窗口。`:ToggleTerm` 也可以执行同样的操作。
+按 `<leader>tt` 打开浮动 shell，直接运行 `ls`、`make`、`git status` 等命令。终端中的 `Esc` 会传给正在运行的程序；需要回到外层 Neovim 时按 `Ctrl-]`，然后按 `<leader>tt` 关闭终端。`:ToggleTerm` 也可开关。
+
+运行 `git commit` 时，Git 会在这个终端里启动另一层由本 Nix shell 配置的 `vim`。在提交信息编辑器中正常使用 `i` 输入、`Esc` 返回普通模式、`:wq` 保存退出，随后 Git 完成提交并回到浮动 shell。不要在提交信息编辑器未退出时关闭浮动终端；提交信息文件不会覆盖项目会话恢复记录。这个 shell 把 `EDITOR`、`VISUAL` 和 `GIT_EDITOR` 指向 `vim`。
 
 ## LSP 服务器
 

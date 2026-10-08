@@ -152,8 +152,8 @@ vim.filetype.add({
 })
 
 require("toggleterm").setup({ direction = "float", float_opts = { border = "rounded" } })
-vim.keymap.set({ "n", "t" }, "<leader>tt", "<cmd>ToggleTerm<CR>", { desc = "Toggle terminal" })
-vim.keymap.set("t", "<Esc>", [[<C-\\><C-n>]], { desc = "Leave terminal mode" })
+vim.keymap.set("n", "<leader>tt", "<cmd>ToggleTerm<CR>", { desc = "Toggle terminal" })
+vim.keymap.set("t", "<C-]>", [[<C-\\><C-n>]], { desc = "Leave outer terminal mode" })
 
 vim.api.nvim_create_autocmd("FileType", {
   callback = function(event)
@@ -269,7 +269,7 @@ local project_markers = {
 
 local function project_file(path, root)
   return type(path) == "string" and path:sub(1, #root + 1) == root .. "/"
-    and vim.fn.filereadable(path) == 1
+    and not path:find("/%.git/", 1, false) and vim.fn.filereadable(path) == 1
 end
 
 local function session_path(root)
@@ -313,9 +313,9 @@ end
 
 vim.api.nvim_create_autocmd("BufEnter", {
   callback = function(event)
-    if vim.bo[event.buf].buftype == "" then
+    if vim.bo[event.buf].buftype == "" and vim.bo[event.buf].filetype ~= "gitcommit" then
       local name = vim.api.nvim_buf_get_name(event.buf)
-      if name ~= "" then last_code_file = name end
+      if name ~= "" and not name:find("/%.git/", 1, false) then last_code_file = name end
     end
   end,
 })
@@ -374,6 +374,9 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
 
 vim.defer_fn(function()
   local arg_path = vim.fn.argc() > 0 and vim.fn.argv(0) or ""
+  if arg_path ~= "" and vim.fn.fnamemodify(arg_path, ":p"):find("/%.git/", 1, false) then
+    return
+  end
   local root = project_root_for(arg_path)
   local path = session_path(root)
   if vim.fn.filereadable(path) == 0 then return end
