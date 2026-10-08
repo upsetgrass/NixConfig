@@ -163,6 +163,26 @@ vim.filetype.add({
 require("toggleterm").setup({ direction = "float", float_opts = { border = "rounded" } })
 vim.keymap.set("n", "<leader>tt", "<cmd>ToggleTerm<CR>", { desc = "Toggle terminal" })
 vim.keymap.set("t", "<C-]>", [[<C-\\><C-n>]], { desc = "Leave outer terminal mode" })
+vim.api.nvim_create_user_command("Shell", function()
+  vim.cmd("botright 12new")
+  local win = vim.api.nvim_get_current_win()
+  vim.cmd("terminal")
+  vim.api.nvim_create_autocmd("TermClose", {
+    buffer = vim.api.nvim_get_current_buf(),
+    once = true,
+    callback = function()
+      vim.schedule(function()
+        if vim.api.nvim_win_is_valid(win) then
+          vim.api.nvim_win_close(win, true)
+        end
+      end)
+    end,
+  })
+  vim.cmd("startinsert")
+end, { desc = "Open interactive shell split" })
+vim.cmd([[
+  cnoreabbrev <expr> shell getcmdtype() ==# ':' && getcmdline() ==# 'shell' ? 'Shell' : 'shell'
+]])
 
 vim.api.nvim_create_autocmd("FileType", {
   callback = function(event)

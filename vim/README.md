@@ -20,6 +20,7 @@ vim 文件名
 | `<leader>g` | fzf 搜索项目文本 |
 | `<leader>fc` | 切换 fzf 文件名匹配的大小写模式 |
 | `<leader>tt` | 打开/关闭浮动终端 |
+| `:shell` | 打开交互式终端分屏；在 shell 中输入 `exit` 返回 |
 | 终端内 `Ctrl-]` | 返回外层 Neovim 普通模式；再按 `<leader>tt` 关闭终端 |
 | `<leader>h` | 打开/关闭 `~/nix/vim/help.md` 帮助浮窗 |
 | 项目树 `a` | 新增文件或目录（目录名以 `/` 结尾） |
@@ -93,7 +94,7 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 
 按 `<leader>tt` 打开浮动 shell，运行 `ls`、`make`、`git status` 等简单命令。终端中的 `Esc` 会传给正在运行的程序；按 `Ctrl-]` 回到外层普通模式，再按 `<leader>tt` 关闭浮窗。
 
-需要完整的交互式 shell（例如执行 `git commit`）时输入 `:shell`。提交信息编辑完成后用 `:wq` 退出编辑器，回到 shell 后输入 `exit` 返回原 Neovim。`VIMINIT` 在本配置启动时被清除，避免系统 Vim 误执行 Neovim 的 Lua 配置。
+需要完整的交互式 shell（例如执行 `git commit`）时输入 `:shell`（本配置将其映射为 `:Shell`），会在底部打开终端分屏。提交信息编辑完成后用 `:wq` 退出编辑器，回到 shell 后输入 `exit`，终端分屏会自动关闭并回到原 Neovim 窗口。Neovim 本身不提供 Vim 的 `:shell` 命令。`VIMINIT` 在本配置启动时被清除，避免系统 Vim 误执行 Neovim 的 Lua 配置。
 
 ## LSP 服务器
 
