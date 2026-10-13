@@ -23,11 +23,21 @@ vim 文件名
 | `:shell` | 打开交互式终端分屏；在 shell 中输入 `exit` 返回 |
 | 终端内 `Ctrl-]` | 返回外层 Neovim 普通模式；再按 `<leader>tt` 关闭终端 |
 | `<leader>h` | 打开/关闭 `~/nix/vim/help.md` 帮助浮窗 |
+| `<leader>cv` | 复制当前文件绝对路径到系统剪贴板和 Vim 默认寄存器 |
+| `gd` / `Ctrl-Enter` | 跳转到定义 |
+| `gr` / `Ctrl-Space` | 查找引用（包括调用位置） |
+| `<leader>ci` / `<leader>co` | 查看谁调用当前函数 / 当前函数调用谁（需要服务器支持） |
+| `Ctrl-o` | 跳转后返回之前的位置 |
 | 项目树 `a` | 新增文件或目录（目录名以 `/` 结尾） |
+| 项目树 `<leader>o` | 左右分屏打开选中文件（垂直分屏） |
+| 项目树 `<leader>p` | 上下分屏打开选中文件（水平分屏） |
 | 项目树 `r` | 重命名选中文件或目录 |
 | 项目树 `d` / `D` / `Delete` | 确认后移到系统回收站，不永久删除 |
 
 ## 项目目录树
+
+状态栏右侧的 `行号,列号` 按字符计数：一个中文或英文字符都算一列，不使用字节列号或屏幕显示宽度。
+正文文件路径显示在窗口顶部，底部保留行列号和阅读进度；项目树和终端的名称仍显示在底部。
 
 目录名现在会追加 `/`，与文件仅靠颜色区分的问题因此也得到改善。树内：`Enter` 打开文件，`a` 新增文件或目录，`r` 重命名，`d` 或 `D` 移到回收站，`?` 查看完整帮助。
 
@@ -36,6 +46,8 @@ vim 文件名
 从树中打开文件后，可按 `<leader>ef` 直接回到树，也可使用标准窗口切换 `Ctrl-w h`。再次按 `<leader>e` 则会关闭树。
 
 ## fzf 大小写
+
+同时查看多个文件：先在正文打开一个文件，再用 `<leader>ef` 回到项目树，选中另一个文件，按 `<leader>o` 左右分屏或 `<leader>p` 上下分屏打开。用 `Ctrl-w w` 轮流切换窗口，或 `Ctrl-w h/j/k/l` 按方向切换；`:close` 关闭当前分屏，`:q` 仍会退出整个 Neovim。在项目树内 `<leader>o` 用于分屏，在正文内仍用于切换大纲焦点。
 
 默认忽略大小写：输入 `readme` 可以匹配 `README.md`。按 `<leader>fc` 可切换文件名选择器的匹配模式；状态栏会提示当前模式。项目文本搜索默认也忽略大小写。
 
@@ -94,8 +106,23 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 
 按 `<leader>tt` 打开浮动 shell，运行 `ls`、`make`、`git status` 等简单命令。终端中的 `Esc` 会传给正在运行的程序；按 `Ctrl-]` 回到外层普通模式，再按 `<leader>tt` 关闭浮窗。
 
+也可以使用 Neovim 原生按键：先按 `Ctrl-\`，松开后再按 `Ctrl-n`，退出终端输入模式并保留 shell 运行。然后用 `Ctrl-w k` 切到上方文档，或 `Ctrl-w w` 轮流切换窗口；回到终端窗口按 `i` 继续输入命令。普通模式下的窗口切换按键不会显示在命令行中。
+
 需要完整的交互式 shell（例如执行 `git commit`）时输入 `:shell`（本配置将其映射为 `:Shell`），会在底部打开终端分屏。提交信息编辑完成后用 `:wq` 退出编辑器，回到 shell 后输入 `exit`，终端分屏会自动关闭并回到原 Neovim 窗口。Neovim 本身不提供 Vim 的 `:shell` 命令。`VIMINIT` 在本配置启动时被清除，避免系统 Vim 误执行 Neovim 的 Lua 配置。
 
 ## LSP 服务器
 
-当前包含 Nix、Lua、Shell、C/C++、Python、Rust、Markdown、HTML、CSS 和 TypeScript/JavaScript 的服务器。部分服务器需要项目根目录、构建数据库或项目依赖才能提供完整跳转结果。
+当前包含 Nix、Lua、Shell、C/C++、Python、Rust、Markdown、HTML、CSS、TypeScript/JavaScript、Scala 和 Go 的服务器。
+
+| 语言 | 服务器与项目要求 |
+| --- | --- |
+| C / C++ | `clangd`，开启后台索引和 clang-tidy。项目应提供 `compile_commands.json`，包含真实的头文件路径和编译参数；CMake 项目可用 `cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON` 生成。其他构建目录可在 `.clangd` 中设置 `CompileFlags.CompilationDatabase`。 |
+| Scala / Chisel | `metals`，识别 `build.sbt`、`build.sc`、Gradle 或 Maven 项目。打开 Scala 文件后接受构建导入提示，或执行 `:MetalsImportBuild` 手动导入；需要 JDK、项目构建工具及依赖下载可用。Chisel 的跳转按 Scala 项目处理。 |
+| Lua | `lua-language-server`，支持普通 Lua 文件。项目可用 `.luarc.json` / `.luarc.jsonc` 指定运行时和库；本配置目录没有这类文件时自动识别 Neovim 的 LuaJIT 和 `vim` API。 |
+
+把光标放在函数或符号名称上，`gd` 跳到定义，`gr` 列出引用，`<leader>ci` 列出调用者，`<leader>co` 列出被调用函数；结果列表用 `Enter` 打开，`:copen` 重新打开列表。调用层级是否可用取决于服务器。`:LspInfo` 查看连接，`:checkhealth vim.lsp` 查看启动问题。
+当前 LuaLS 不提供调用层级接口，Lua 中用 `gr` 查找调用位置；`<leader>ci` / `<leader>co` 用于支持该接口的服务器。
+
+引用/调用列表用 `:cclose` 关闭，或在列表中按 `q`；`:copen` 可重新打开。`:LspInfo` 打开 LSP 健康检查，`:MetalsLog` 打开当前项目的 `.metals/metals.log`，跳到日志末尾；日志窗口按 `q` 关闭，用 `:edit!` 重新加载最新内容。`:messages` 查看 Neovim 收到的提示。普通模式 `Ctrl-Space` 同时兼容终端发送的 `Ctrl-@`；`Ctrl-Enter` 需要终端支持独立传输这个组合键，否则使用 `gd`。
+
+C、Scala 和 Lua 已使用 Treesitter 高亮，并加强关键字、类型、函数、字符串、数字、参数和注释的颜色区分；LSP 类型/函数颜色与语法高亮保持一致。语法高亮不依赖项目构建导入是否成功。

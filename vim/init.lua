@@ -7,11 +7,11 @@ vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.mouse = "a"
 vim.opt.ignorecase = true
-vim.opt.smartcase = true
+vim.opt.smartcase = false
 vim.opt.expandtab = true
-vim.opt.shiftwidth = 4
-vim.opt.tabstop = 4
-vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 2
+vim.opt.tabstop = 2
+vim.opt.softtabstop = 2
 vim.opt.smartindent = true
 vim.opt.termguicolors = true
 vim.opt.signcolumn = "yes"
@@ -21,9 +21,22 @@ vim.opt.wrap = false
 vim.opt.splitright = true
 vim.opt.splitbelow = true
 vim.opt.undofile = true
+vim.opt.rulerformat = '%l,%{charcol(".")} %P'
+vim.opt.winbar = "%{%&buftype == '' ? '%f %m%r' : ''%}"
+vim.opt.statusline = "%{%&buftype == '' ? '' : '%f '%}%h%w%m%r%=%l,%{charcol('.')} %P"
 
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", { silent = true })
 vim.keymap.set("n", "<leader>w", "<cmd>write<CR>", { silent = true })
+vim.keymap.set("n", "<leader>cv", function()
+  local path = vim.fn.expand("%:p")
+  if path == "" or vim.bo.buftype ~= "" then
+    vim.notify("Open a file to copy its path", vim.log.levels.WARN)
+    return
+  end
+  vim.fn.setreg("+", path)
+  vim.fn.setreg('"', path)
+  vim.notify("Copied path: " .. path)
+end, { desc = "Copy absolute file path" })
 vim.keymap.set("n", "<leader>q", "<cmd>quitall<CR>", { silent = true })
 vim.api.nvim_create_autocmd("BufWritePre", {
   callback = function()
@@ -49,6 +62,12 @@ require("nvim-tree").setup({
   on_attach = function(bufnr)
     local api = require("nvim-tree.api")
     api.config.mappings.default_on_attach(bufnr)
+    vim.keymap.set("n", "<leader>o", api.node.open.vertical, {
+      buffer = bufnr, silent = true, desc = "Open file in vertical split",
+    })
+    vim.keymap.set("n", "<leader>p", api.node.open.horizontal, {
+      buffer = bufnr, silent = true, desc = "Open file in horizontal split",
+    })
     for _, key in ipairs({ "d", "<Del>" }) do
       vim.keymap.set({ "n", "x" }, key, api.fs.trash, {
         buffer = bufnr, silent = true, desc = "Move to trash",
@@ -162,7 +181,7 @@ vim.filetype.add({
 
 require("toggleterm").setup({ direction = "float", float_opts = { border = "rounded" } })
 vim.keymap.set("n", "<leader>tt", "<cmd>ToggleTerm<CR>", { desc = "Toggle terminal" })
-vim.keymap.set("t", "<C-]>", [[<C-\\><C-n>]], { desc = "Leave outer terminal mode" })
+vim.keymap.set("t", "<C-]>", [[<C-\><C-n>]], { desc = "Leave outer terminal mode" })
 vim.api.nvim_create_user_command("Shell", function()
   vim.cmd("botright 12new")
   local win = vim.api.nvim_get_current_win()
@@ -183,6 +202,26 @@ end, { desc = "Open interactive shell split" })
 vim.cmd([[
   cnoreabbrev <expr> shell getcmdtype() ==# ':' && getcmdline() ==# 'shell' ? 'Shell' : 'shell'
 ]])
+
+local function language_highlights()
+  local colors = {
+    comment = "#8a949e", keyword = "#c792ea", type = "#82d7e8",
+    ["function"] = "#f2cc60", ["function.method"] = "#f2cc60",
+    string = "#a8d58b", number = "#f0a67a", ["variable.parameter"] = "#e6c58f",
+  }
+  for _, lang in ipairs({ "c", "scala", "lua" }) do
+    for capture, color in pairs(colors) do
+      vim.api.nvim_set_hl(0, "@" .. capture .. "." .. lang, { fg = color })
+    end
+    for kind, capture in pairs({ function_ = "function", method = "function.method",
+      class = "type", struct = "type", interface = "type", parameter = "variable.parameter" }) do
+      local name = kind == "function_" and "function" or kind
+      vim.api.nvim_set_hl(0, "@lsp.type." .. name .. "." .. lang, { link = "@" .. capture .. "." .. lang })
+    end
+  end
+end
+language_highlights()
+vim.api.nvim_create_autocmd("ColorScheme", { callback = language_highlights })
 
 vim.api.nvim_create_autocmd("FileType", {
   callback = function(event)
@@ -211,7 +250,64 @@ require("blink.cmp").setup({
 })
 
 vim.lsp.config("*", { capabilities = require("blink.cmp").get_lsp_capabilities() })
-vim.lsp.config("metals", { init_options = { statusBarProvider = "off" } })
+vim.lsp.config("clangd", {
+  cmd = { vim.fn.exepath("clangd"), "--background-index", "--clang-tidy" },
+})
+vim.lsp.config("lua_ls", {
+  cmd = { vim.fn.exepath("lua-language-server") },
+  settings = { Lua = { telemetry = { enable = false } } },
+  on_init = function(client)
+    local root = client.root_dir
+    if root and (vim.uv.fs_stat(root .. "/.luarc.json") or vim.uv.fs_stat(root .. "/.luarc.jsonc")) then
+      return
+    end
+    if root == vim.fn.expand("~/nix/vim") then
+      client.config.settings.Lua = vim.tbl_deep_extend("force", client.config.settings.Lua, {
+        runtime = { version = "LuaJIT" },
+        workspace = { library = { vim.env.VIMRUNTIME }, checkThirdParty = false },
+        diagnostics = { globals = { "vim", "Snacks" } },
+      })
+    end
+  end,
+})
+vim.lsp.config("metals", {
+  cmd = { vim.fn.exepath("metals") },
+  init_options = { statusBarProvider = "off" },
+})
+vim.api.nvim_create_user_command("MetalsImportBuild", function()
+  local clients = vim.lsp.get_clients({ bufnr = 0, name = "metals" })
+  if not clients[1] then
+    vim.notify("Open a Scala file in a build.sbt/build.sc/pom.xml project first", vim.log.levels.WARN)
+    return
+  end
+  clients[1]:exec_cmd({ command = "build-import" }, { bufnr = 0 })
+end, { desc = "Import Scala project build into Metals" })
+if vim.fn.exists(":LspInfo") == 0 then
+  vim.api.nvim_create_user_command("LspInfo", function()
+    vim.cmd("checkhealth vim.lsp")
+  end, { desc = "Show LSP health and attached clients" })
+end
+vim.api.nvim_create_user_command("MetalsLog", function()
+  local client = vim.lsp.get_clients({ bufnr = 0, name = "metals" })[1]
+  local root = client and client.root_dir
+    or vim.fs.root(0, { "build.sbt", "build.sc", "build.gradle", "build.gradle.kts", "pom.xml", ".git" })
+  local path = root and root .. "/.metals/metals.log"
+  if not path or vim.fn.filereadable(path) == 0 then
+    vim.notify("No Metals log found for this project", vim.log.levels.WARN)
+    return
+  end
+  vim.cmd("botright 12split " .. vim.fn.fnameescape(path))
+  vim.bo.buflisted = false
+  vim.bo.readonly = true
+  vim.cmd("normal! G")
+  vim.keymap.set("n", "q", "<cmd>close<CR>", { buffer = true, silent = true })
+end, { desc = "Open current project Metals log" })
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "qf",
+  callback = function(event)
+    vim.keymap.set("n", "q", "<cmd>close<CR>", { buffer = event.buf, silent = true })
+  end,
+})
 for _, server in ipairs({
   "nil_ls", "lua_ls", "bashls", "clangd", "pyright", "rust_analyzer",
   "marksman", "html", "cssls", "ts_ls", "metals", "gopls",
@@ -227,6 +323,9 @@ vim.api.nvim_create_autocmd("LspAttach", {
     vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
     vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
     vim.keymap.set("n", "<C-Space>", vim.lsp.buf.references, opts)
+    vim.keymap.set("n", "<C-@>", vim.lsp.buf.references, opts)
+    vim.keymap.set("n", "<leader>ci", vim.lsp.buf.incoming_calls, opts)
+    vim.keymap.set("n", "<leader>co", vim.lsp.buf.outgoing_calls, opts)
     vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
     vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
     vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
