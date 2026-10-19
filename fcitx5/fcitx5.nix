@@ -154,6 +154,16 @@ let
     exec ${fcitx5}/bin/fcitx5-config-qt "$@"
   '';
 
+  firefoxLauncher = pkgs.writeShellScriptBin "firefox-fcitx5"
+    (builtins.readFile ./firefox-fcitx5.sh);
+
+  edgeLauncher = pkgs.writeShellScriptBin "edge-fcitx5" ''
+    exec ${pkgs.bash}/bin/bash ${./chromium-fcitx5.sh} edge "$@"
+  '';
+  chromeLauncher = pkgs.writeShellScriptBin "chrome-fcitx5" ''
+    exec ${pkgs.bash}/bin/bash ${./chromium-fcitx5.sh} chrome "$@"
+  '';
+
   # Explicitly apply new UI defaults to an existing writable GUI configuration.
   # Wait for the old daemon to save and exit before changing its config file.
   applySettings = pkgs.writeShellScriptBin "fcitx5-nix-apply" ''
@@ -219,7 +229,7 @@ let
   '';
 in
 pkgs.mkShell {
-  packages = [ launcher configtool applySettings fcitx5 ];
+  packages = [ launcher configtool applySettings firefoxLauncher edgeLauncher chromeLauncher fcitx5 ];
 
   GTK_IM_MODULE = "fcitx";
   QT_IM_MODULE = "fcitx";

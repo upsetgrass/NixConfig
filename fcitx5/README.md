@@ -133,3 +133,29 @@ in {
 此时使用 Home Manager 的正常启动方式和标准 XDG 目录，无需运行 `fcitx5-nix`。非 NixOS 桌面的 GTK/Qt 输入法模块、Wayland 前端还需按桌面环境集成；若应用中无法输入中文，先检查 `fcitx5-diagnose`。
 
 翻页键升级：关闭配置窗口，重新进入 nix-shell，执行 `fcitx5-nix-apply`。该命令会备份全局配置，仅更新上一页／下一页这两个快捷键分组，保留 Shift 切换等其他设置。
+
+## Firefox 浏览器中文输入（本机 Snap / X11）
+
+提供 `firefox-fcitx5.sh`，仅为 Firefox 设置 `GTK_IM_MODULE=xim`、`XMODIFIERS=@im=fcitx` 和 `MOZ_ENABLE_WAYLAND=0`，通过 Snap 自带的 GTK XIM 模块连接已运行的 Fcitx5。它是当前 GNOME/X11 主机的兼容入口；Wayland 会话不应照搬。
+
+先用 Firefox 菜单的“退出”彻底结束所有窗口（包括隐私窗口），再运行：
+
+```bash
+~/nix/fcitx5/firefox-fcitx5.sh
+```
+
+重新进入本 nix-shell 后也可运行 `firefox-fcitx5`。如果旧浏览器进程仍在，新命令只会把窗口请求转交给它，新的输入法变量不会生效。Fcitx5 必须仍在运行；点击网页输入框或地址栏后按 Shift 切到中文。
+
+本机用户目录的 `firefox_firefox.desktop` 和 `firefox.desktop` 已改为调用上述脚本，菜单／收藏栏重新启动 Firefox 时也会使用这些设置。未修改系统文件和浏览器用户资料。已有用户入口会先备份为 `.before-fcitx5`；要撤销时恢复备份，若无备份则移除对应用户 desktop 文件，桌面会重新使用系统入口。
+
+此修改已经通过脚本语法和 desktop 文件格式检查；沙箱无法启动桌面浏览器，仍需在实际网页中验证。
+
+## emoji 排序、浏览器与配置分享
+
+`emoji.mb` 中同为 `emoji` 关键词的词条按文件内顺序展示；把常用表情整行移动到前面即可。保存后重新进入 nix-shell，运行 `fcitx5-nix-apply`，同步词表并重启。
+
+本机另提供 Edge 的 X11 启动入口：`~/nix/fcitx5/chromium-fcitx5.sh edge`；Chrome 安装后可用同一脚本加 `chrome` 参数。在新的 nix-shell 中也可用 `edge-fcitx5`、`chrome-fcitx5`。启动前用浏览器菜单完全退出旧进程。Edge 的用户菜单入口已设置为使用该脚本；本机尚未发现 Chrome 的系统安装，因此未创建 Chrome 菜单入口。Google 搜索是网页，可在任一浏览器访问。
+
+分享时请复制整个 `fcitx5/` 目录，而不只是两个文件：`fcitx5.nix` 还读取 `firefox-fcitx5.sh`、`chromium-fcitx5.sh`。GUI 保存到 `~/.config/nix-fcitx5/fcitx5/` 的修改不会自动回写到项目；要分享这些修改，需把对应选项写入 `fcitx5.nix` 的 `configFiles`。学习词库也不会随项目自动分享。
+
+首次使用者会得到 Nix 声明的默认配置。当前浏览器脚本面向本机 GNOME/X11 与系统浏览器路径；其他系统需要适配。楷体由 Nix 提供，Times New Roman 使用宿主已安装字体，未安装时会回退。需要联网及可用的 Nix 环境来下载依赖。
