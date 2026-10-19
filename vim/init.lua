@@ -25,6 +25,12 @@ vim.opt.rulerformat = '%l,%{charcol(".")} %P'
 vim.opt.winbar = "%{%&buftype == '' ? '%f %m%r' : ''%}"
 vim.opt.statusline = "%{%&buftype == '' ? '' : '%f '%}%h%w%m%r%=%l,%{charcol('.')} %P"
 
+require("ibl").setup({
+  indent = { char = "┆" },
+  scope = { enabled = false },
+  exclude = { filetypes = { "NvimTree", "Outline", "help", "checkhealth", "qf" } },
+})
+
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", { silent = true })
 vim.keymap.set("n", "<leader>w", "<cmd>write<CR>", { silent = true })
 vim.keymap.set("n", "<leader>cv", function()

@@ -29,6 +29,7 @@ let
       outlineTreesitterProvider
       toggleterm-nvim
       gitsigns-nvim
+      indent-blankline-nvim
       blink-cmp
       nvim-lspconfig
       (nvim-treesitter.withPlugins (parsers: map (name: builtins.getAttr name parsers) [

@@ -67,6 +67,8 @@ Scala 已加入 Treesitter parser 和 Metals LSP。即使项目没有成功导�
 
 ## 语法高亮语言
 
+`indent-blankline.nvim` 自动显示缩进虚线，每层宽度跟随文件的缩进设置（默认两个空格），空行也会显示引导线。项目树、大纲和终端不显示这类引导线。`:IBLDisable` 临时关闭，`:IBLEnable` 重新开启。
+
 已启用 Treesitter 高亮：Markdown、C、C++、Python、Scala/Chisel、JSON、Lua、Verilog/SystemVerilog，以及 Go、Java、C#、PHP、Ruby、Rust、TypeScript/TSX、Nix、YAML、TOML、HTML、CSS 等。`.v`、`.sv`、`.svh` 会自动按 SystemVerilog 解析；Chisel 源码按 Scala 解析。
 
 如果某个文件没有高亮，可用 `:set filetype?` 查看文件类型，再用 `:TSInstallInfo`（本配置 parser 已由 Nix 固定安装）或 `:Inspect` 检查 Treesitter 状态。
