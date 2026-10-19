@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> {} }:
+{ pkgs ? import <nixpkgs> {}, stopServicesOnExit ? false }:
 
 let
   inherit (pkgs) lib;
@@ -34,10 +34,24 @@ let
     </fontconfig>
   '';
 
-  # Keep the same native Pinyin engine and Wikipedia dictionary as nix_config.
+  # Convert the Sogou cell dictionaries into native libime dictionaries.
+  sogouDirectory = ./dictionaries/sogou;
+  sogouFiles = builtins.filter (name: lib.hasSuffix ".scel" name)
+    (builtins.attrNames (builtins.readDir sogouDirectory));
+  sogouDictionary = pkgs.runCommand "fcitx5-pinyin-sogou" {} ''
+    mkdir -p "$out/share/fcitx5/pinyin/dictionaries"
+    ${lib.concatStringsSep "\n" (lib.imap0 (index: name: ''
+      ${pkgs.qt6Packages.fcitx5-chinese-addons}/bin/scel2org5 \
+        ${lib.escapeShellArg (toString (sogouDirectory + "/${name}"))} -o sogou-${toString index}.org
+      ${pkgs.libime}/bin/libime_pinyindict sogou-${toString index}.org \
+        "$out/share/fcitx5/pinyin/dictionaries/sogou-${toString index}.dict"
+    '') sogouFiles)}
+  '';
+
+  # Native Pinyin engine with Sogou extension dictionaries.
   addons = [
     pkgs.qt6Packages.fcitx5-chinese-addons
-    pkgs.fcitx5-pinyin-zhwiki
+    sogouDictionary
     oriTheme
     emojiAddon
     (pkgs.writeTextDir "share/fcitx5/data/quickphrase.d/custom-emoji.mb" ''
@@ -227,19 +241,27 @@ let
     echo "Applied emoji menu, Chinese punctuation, OriLight and Kai/Times fonts. Starting Fcitx5."
     exec ${fcitx5}/bin/fcitx5 -d >"$cache_root/fcitx5.log" 2>&1 </dev/null
   '';
+  # Export shell variables so a parent shell can compose this application.
+  sessionVariables = {
+    GTK_IM_MODULE = "fcitx";
+    QT_IM_MODULE = "fcitx";
+    XMODIFIERS = "@im=fcitx";
+    SDL_IM_MODULE = "fcitx";
+    GLFW_IM_MODULE = "ibus";
+  };
 in
-pkgs.mkShell {
+pkgs.mkShell (sessionVariables // {
   packages = [ launcher configtool applySettings firefoxLauncher edgeLauncher chromeLauncher fcitx5 ];
 
-  GTK_IM_MODULE = "fcitx";
-  QT_IM_MODULE = "fcitx";
-  XMODIFIERS = "@im=fcitx";
-  SDL_IM_MODULE = "fcitx";
-  GLFW_IM_MODULE = "ibus";
-
-  passthru = { inherit fcitx5 addons configFiles launcher configtool applySettings fontConfig emojiFile; };
+  passthru = { inherit fcitx5 addons configFiles launcher configtool applySettings fontConfig emojiFile sogouDictionary sessionVariables stopServicesOnExit; };
 
   shellHook = ''
+    nix_fcitx5_preexisting=0
+    nix_fcitx5_owned_pids=""
+    if ${pkgs.procps}/bin/pgrep -u "$(${pkgs.coreutils}/bin/id -u)" -x 'fcitx5|\.fcitx5-wrapped' >/dev/null; then
+      nix_fcitx5_preexisting=1
+    fi
+
     if [ -z "''${DISPLAY:-}" ] && [ -z "''${WAYLAND_DISPLAY:-}" ]; then
       echo "No graphical session detected; Fcitx5 was not started."
     elif ${pkgs.procps}/bin/pgrep -u "$(${pkgs.coreutils}/bin/id -u)" -x fcitx >/dev/null; then
@@ -250,14 +272,30 @@ pkgs.mkShell {
       fcitx5_log_dir="''${XDG_CACHE_HOME:-$HOME/.cache}/nix-fcitx5"
       ${pkgs.coreutils}/bin/mkdir -p "$fcitx5_log_dir"
       if fcitx5-nix -d >"$fcitx5_log_dir/fcitx5.log" 2>&1 </dev/null; then
-        echo "Fcitx5 started in the background; it continues running after this shell exits."
+        echo "Fcitx5 started in the background; ${if stopServicesOnExit then "it stops when this shell exits." else "it continues running after this shell exits."}"
       else
         echo "Fcitx5 failed to start; see $fcitx5_log_dir/fcitx5.log"
       fi
     fi
+    ${pkgs.lib.optionalString stopServicesOnExit ''
+      if [ "$nix_fcitx5_preexisting" = 0 ]; then
+        nix_fcitx5_owned_pids="$(${pkgs.procps}/bin/pgrep -u "$(${pkgs.coreutils}/bin/id -u)" -x 'fcitx5|\.fcitx5-wrapped' || true)"
+      fi
+      nix_fcitx5_cleanup() {
+        local pid
+        for pid in $nix_fcitx5_owned_pids; do
+          # Target only the daemon recorded at entry, not an unrelated service.
+          if ${pkgs.procps}/bin/pgrep -u "$(${pkgs.coreutils}/bin/id -u)" -x 'fcitx5|\.fcitx5-wrapped' | ${pkgs.gnugrep}/bin/grep -qx "$pid"; then
+            kill -TERM "$pid" 2>/dev/null || true
+          fi
+        done
+      }
+      trap nix_fcitx5_cleanup EXIT
+      echo "Exit cleanup enabled: this shell's Fcitx5 stops on exit."
+    ''}
     echo "GUI settings: fcitx5-configtool"
     echo "Apply OriLight and Kai/Times font settings, then restart: fcitx5-nix-apply"
     echo "Stop Fcitx5: fcitx5-remote -e"
     echo "English by default; Shift toggles Pinyin; in Pinyin type /emoji to browse emoji."
   '';
-}
+})

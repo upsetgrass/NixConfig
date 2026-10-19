@@ -103,7 +103,7 @@ nohup /opt/sogoupinyin/files/bin/sogoupinyin-watchdog >/dev/null 2>&1 &
 
 ## 包与 Home Manager
 
-参照 `~/work/nix_config/usr/gui/fcitx5/`，使用 Fcitx5 原生拼音和维基百科中文词库，不是搜狗引擎。无需原项目的个人词库、日语/韩语输入法或自定义 Home Manager 模块。
+参照 `~/work/nix_config/usr/gui/fcitx5/`，使用 Fcitx5 原生拼音和搜狗细胞扩展词库，不是搜狗引擎。无需原项目的个人词库、日语/韩语输入法或自定义 Home Manager 模块。
 
 独立构建输入法包：
 
@@ -159,3 +159,13 @@ in {
 分享时请复制整个 `fcitx5/` 目录，而不只是两个文件：`fcitx5.nix` 还读取 `firefox-fcitx5.sh`、`chromium-fcitx5.sh`。GUI 保存到 `~/.config/nix-fcitx5/fcitx5/` 的修改不会自动回写到项目；要分享这些修改，需把对应选项写入 `fcitx5.nix` 的 `configFiles`。学习词库也不会随项目自动分享。
 
 首次使用者会得到 Nix 声明的默认配置。当前浏览器脚本面向本机 GNOME/X11 与系统浏览器路径；其他系统需要适配。楷体由 Nix 提供，Times New Roman 使用宿主已安装字体，未安装时会回退。需要联网及可用的 Nix 环境来下载依赖。
+
+## 退出时停止本次启动的输入法
+
+独立入口支持 `nix-shell ~/nix/fcitx5/fcitx5.nix --arg stopServicesOnExit true`。退出 shell 时停止本次自动启动的 Fcitx5，保留进入前已有的实例。默认值为 `false`，退出后继续后台运行。进程记录和清理均由本目录的 `fcitx5.nix` 管理；统一入口仅传递该选项。
+
+## 搜狗词库
+
+扩展词库已由维基词库换成 `dictionaries/sogou/` 中的五份搜狗 `.scel`：计算机词汇、成语俗语、古诗词名句、政府机关团体机构和行政地区，来源于本机搜狗已下载的细胞词库。Nix 构建时逐个用 `scel2org5` 和 `libime_pinyindict` 转换为 `.dict`，随输入法包加载，不依赖别人机器上安装搜狗。保留 Fcitx5 基础词库及用户学习词库；这不会切换到搜狗引擎，也不导入搜狗私有用户 `.bin` 格式。
+
+新增细胞词库时把 `.scel` 放入该目录，然后重新进入统一 shell 或独立 shell，再运行 `fcitx5-nix-apply`，以新包重启 Fcitx5。修改源文件前请保留其来源信息；分享第三方词库时遵守各自许可。
