@@ -56,9 +56,20 @@ let
     withConfigtool = true;
   };
 
+  pagingSettings = {
+    "Hotkey/PrevPage" = { "0" = "minus"; "1" = "Page_Up"; };
+    "Hotkey/NextPage" = {
+      "0" = "equal";
+      "1" = "plus";
+      "2" = "Shift+plus";
+      "3" = "Page_Down";
+    };
+  };
+  pagingConfig = pkgs.writeText "fcitx5-paging" (lib.generators.toINI {} pagingSettings);
+
   # Plain Fcitx5 files, also reusable with Home Manager's xdg.configFile.
   configFiles = {
-    config = pkgs.writeText "fcitx5-config" (lib.generators.toINI {} {
+    config = pkgs.writeText "fcitx5-config" (lib.generators.toINI {} (pagingSettings // {
       Hotkey.EnumerateWithTriggerKeys = "False";
       "Hotkey/TriggerKeys" = { "0" = "Shift_L"; "1" = "Shift_R"; };
       "Hotkey/AltTriggerKeys"."0" = "";
@@ -68,7 +79,7 @@ let
         ActiveByDefault = "False";
         ShareInputState = "No";
       };
-    });
+    }));
 
     profile = pkgs.writeText "fcitx5-profile" (lib.generators.toINI {} {
       "Groups/0" = {
@@ -161,6 +172,28 @@ let
         exit 1
       fi
     fi
+    global_config="$config_root/fcitx5/config"
+    if [ ! -e "$global_config.before-paging" ]; then
+      ${pkgs.coreutils}/bin/cp -p "$global_config" "$global_config.before-paging"
+    fi
+    paging_temp="$(${pkgs.coreutils}/bin/mktemp "$global_config.XXXXXXXX")"
+    ${pkgs.gawk}/bin/awk '
+      NR == FNR {
+        if (/^\[/) section = $0
+        if (section != "") replacement[section] = replacement[section] $0 "\n"
+        next
+      }
+      /^\[/ {
+        skip = ($0 in replacement)
+        if (skip) { printf "%s", replacement[$0]; used[$0] = 1 }
+      }
+      !skip { print }
+      END {
+        for (section in replacement)
+          if (!(section in used)) printf "\n%s", replacement[section]
+      }
+    ' ${pagingConfig} "$global_config" > "$paging_temp"
+    ${pkgs.coreutils}/bin/mv "$paging_temp" "$global_config"
     ${lib.concatMapStringsSep "\n" (name: ''
       target="$config_root/fcitx5/${name}"
       if [ ! -e "$target.before-ui-settings" ]; then
