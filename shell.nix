@@ -7,8 +7,8 @@
 let
   # Add future application shells here. Use the same nixpkgs for all of them.
   applications = {
-    vim = import ./vim/vim.nix { inherit pkgs; };
-    fcitx5 = import ./fcitx5/fcitx5.nix { inherit pkgs stopServicesOnExit; };
+    vim = import ./vim/default.nix { inherit pkgs; };
+    fcitx5 = import ./fcitx5/default.nix { inherit pkgs stopServicesOnExit; };
   };
   applicationShells = builtins.attrValues applications;
   # inputsFrom merges dependencies and shellHooks, but not environment variables.
