@@ -38,13 +38,31 @@ let
   sogouDirectory = ./dictionaries/sogou;
   sogouFiles = builtins.filter (name: lib.hasSuffix ".scel" name)
     (builtins.attrNames (builtins.readDir sogouDirectory));
-  sogouDictionary = pkgs.runCommand "fcitx5-pinyin-sogou" {} ''
+  sogouDictionary = pkgs.runCommand "fcitx5-pinyin-sogou" {
+    src = sogouDirectory;
+  } ''
     mkdir -p "$out/share/fcitx5/pinyin/dictionaries"
     ${lib.concatStringsSep "\n" (lib.imap0 (index: name: ''
-      ${pkgs.qt6Packages.fcitx5-chinese-addons}/bin/scel2org5 \
-        ${lib.escapeShellArg (toString (sogouDirectory + "/${name}"))} -o sogou-${toString index}.org
-      ${pkgs.libime}/bin/libime_pinyindict sogou-${toString index}.org \
-        "$out/share/fcitx5/pinyin/dictionaries/sogou-${toString index}.dict"
+      # scel2org5 prints dictionary metadata on stderr even on success.
+      # Keep successful conversions quiet, but preserve diagnostics on failure.
+      if ${pkgs.qt6Packages.fcitx5-chinese-addons}/bin/scel2org5 \
+        "$src"/${lib.escapeShellArg name} -o sogou-${toString index}.org \
+        >sogou-${toString index}.log 2>&1; then
+        :
+      else
+        status=$?
+        cat sogou-${toString index}.log >&2
+        exit "$status"
+      fi
+      if ${pkgs.libime}/bin/libime_pinyindict sogou-${toString index}.org \
+        "$out/share/fcitx5/pinyin/dictionaries/sogou-${toString index}.dict" \
+        >sogou-${toString index}-compile.log 2>&1; then
+        :
+      else
+        status=$?
+        cat sogou-${toString index}-compile.log >&2
+        exit "$status"
+      fi
     '') sogouFiles)}
   '';
 
@@ -239,7 +257,17 @@ let
       ${pkgs.coreutils}/bin/mv "$config_temp" "$target"
     '') [ "conf/classicui.conf" "conf/pinyin.conf" "conf/quickphrase.conf" "conf/punctuation.conf" ]}
     echo "Applied emoji menu, Chinese punctuation, OriLight and Kai/Times fonts. Starting Fcitx5."
-    exec ${fcitx5}/bin/fcitx5 -d >"$cache_root/fcitx5.log" 2>&1 </dev/null
+    ${fcitx5}/bin/fcitx5 -d >"$cache_root/fcitx5.log" 2>&1 </dev/null
+    # Only acknowledge this configuration after the daemon owns its D-Bus name.
+    for attempt in $(${pkgs.coreutils}/bin/seq 1 50); do
+      if ${fcitx5}/bin/fcitx5-remote >/dev/null 2>&1; then
+        printf '%s\n' "$0" > "$config_root/fcitx5/.nix-applied-version"
+        exit 0
+      fi
+      ${pkgs.coreutils}/bin/sleep 0.1
+    done
+    echo "Fcitx5 did not become ready; see $cache_root/fcitx5.log" >&2
+    exit 1
   '';
   # Export shell variables so a parent shell can compose this application.
   sessionVariables = {
@@ -266,6 +294,12 @@ pkgs.mkShell (sessionVariables // {
       echo "No graphical session detected; Fcitx5 was not started."
     elif ${pkgs.procps}/bin/pgrep -u "$(${pkgs.coreutils}/bin/id -u)" -x fcitx >/dev/null; then
       echo "Fcitx 4/Sogou is still running. Exit it first, then run: fcitx5-nix -d"
+    elif ! ${pkgs.gnugrep}/bin/grep -Fxq ${lib.escapeShellArg "${applySettings}/bin/fcitx5-nix-apply"} \
+      "''${XDG_CONFIG_HOME:-$HOME/.config}/nix-fcitx5/fcitx5/.nix-applied-version" 2>/dev/null; then
+      echo "New Fcitx5 configuration detected; applying automatically."
+      if ! ${applySettings}/bin/fcitx5-nix-apply; then
+        echo "Automatic apply failed; close the config window and retry fcitx5-nix-apply."
+      fi
     elif ${pkgs.procps}/bin/pgrep -u "$(${pkgs.coreutils}/bin/id -u)" -x 'fcitx5|\.fcitx5-wrapped' >/dev/null; then
       echo "Fcitx5 is already running; keeping the existing instance."
     else
@@ -294,7 +328,7 @@ pkgs.mkShell (sessionVariables // {
       echo "Exit cleanup enabled: this shell's Fcitx5 stops on exit."
     ''}
     echo "GUI settings: fcitx5-configtool"
-    echo "Apply OriLight and Kai/Times font settings, then restart: fcitx5-nix-apply"
+    echo "Configuration updates apply automatically; force reapply: fcitx5-nix-apply"
     echo "Stop Fcitx5: fcitx5-remote -e"
     echo "English by default; Shift toggles Pinyin; in Pinyin type /emoji to browse emoji."
   '';
