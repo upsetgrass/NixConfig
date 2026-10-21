@@ -63,6 +63,7 @@ require("nvim-tree").setup({
   sync_root_with_cwd = true,
   update_focused_file = { enable = true },
   view = { side = "left" },
+  filters = { git_ignored = false },
   renderer = { add_trailing = true, icons = { show = { file = false, folder = false, folder_arrow = false, git = false } } },
   trash = { cmd = "gio trash" },
   on_attach = function(bufnr)
