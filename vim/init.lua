@@ -229,8 +229,27 @@ end
 language_highlights()
 vim.api.nvim_create_autocmd("ColorScheme", { callback = language_highlights })
 
+local four_space_filetypes = {
+  bash = true, c = true, cpp = true, c_sharp = true, cuda = true, go = true,
+  java = true, javascript = true, javascriptreact = true, lua = true, nix = true,
+  objc = true, objcpp = true, php = true, python = true, ruby = true, rust = true,
+  scala = true, sh = true, systemverilog = true, typescript = true,
+  typescriptreact = true, verilog = true, vim = true, zig = true,
+}
+
 vim.api.nvim_create_autocmd("FileType", {
   callback = function(event)
+    if four_space_filetypes[vim.bo[event.buf].filetype] then
+      vim.bo[event.buf].expandtab = true
+      vim.bo[event.buf].shiftwidth = 4
+      vim.bo[event.buf].tabstop = 4
+      vim.bo[event.buf].softtabstop = 4
+    else
+      vim.bo[event.buf].expandtab = true
+      vim.bo[event.buf].shiftwidth = 2
+      vim.bo[event.buf].tabstop = 2
+      vim.bo[event.buf].softtabstop = 2
+    end
     if vim.bo[event.buf].filetype == "verilog" then
       vim.treesitter.language.register("systemverilog", "verilog")
     end

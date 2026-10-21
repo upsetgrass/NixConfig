@@ -7,6 +7,7 @@
   - `<leader>g`   搜索项目文本(不区分大小写)
   - `<leader>fc`  切换文件名匹配的大小写模式
 - `<leader>cv`    复制当前文件绝对路径；终端中用 `Ctrl-Shift-v`，或退出终端输入模式后按 `p` 粘贴
+- 缩进：Markdown、文本等每层 2 空格；Scala、C/C++、Lua 等编程语言每层 4 空格
 - `<leader>tt`    打开/关闭浮动终端
 - `<leader>h`     打开/关闭本帮助
 - `Ctrl+o`        回到跳转前的位置
