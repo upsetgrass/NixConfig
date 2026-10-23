@@ -74,7 +74,15 @@ require("nvim-tree").setup({
   update_focused_file = { enable = true },
   view = { side = "left" },
   filters = { git_ignored = false },
-  renderer = { add_trailing = true, icons = { show = { file = false, folder = false, folder_arrow = false, git = false } } },
+  git = { enable = true, show_on_dirs = true, show_on_open_dirs = true },
+  renderer = {
+    add_trailing = true,
+    highlight_git = "name",
+    special_files = {},
+    icons = {
+      show = { file = false, folder = false, folder_arrow = false, git = false },
+    },
+  },
   trash = { cmd = "gio trash" },
   on_attach = function(bufnr)
     local api = require("nvim-tree.api")
@@ -94,6 +102,51 @@ require("nvim-tree").setup({
       buffer = bufnr, silent = true, desc = "Move bookmarked files to trash",
     })
   end,
+})
+local function tree_git_highlights()
+  local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
+  local colors = {
+    clean = normal.fg and string.format("#%06x", normal.fg) or "#d8dee9",
+    untracked = "#61afef",
+    changed = "#98c379",
+  }
+  for _, group in ipairs({
+    "NvimTreeFolderName", "NvimTreeEmptyFolderName", "NvimTreeOpenedFolderName",
+    "NvimTreeSymlinkFolderName", "NvimTreeRootFolder", "NvimTreeFileName",
+    "NvimTreeExecFile", "NvimTreeSymlink", "NvimTreeSpecialFile",
+    "NvimTreeGitIgnoredIcon", "NvimTreeGitFileIgnoredHL", "NvimTreeGitFolderIgnoredHL",
+  }) do
+    vim.api.nvim_set_hl(0, group, { fg = colors.clean })
+  end
+  for _, group in ipairs({ "NvimTreeGitNewIcon", "NvimTreeGitFileNewHL", "NvimTreeGitFolderNewHL" }) do
+    vim.api.nvim_set_hl(0, group, { fg = colors.untracked })
+  end
+  for _, group in ipairs({
+    "NvimTreeGitDirtyIcon", "NvimTreeGitStagedIcon", "NvimTreeGitDeletedIcon",
+    "NvimTreeGitRenamedIcon", "NvimTreeGitMergeIcon", "NvimTreeGitFileDirtyHL",
+    "NvimTreeGitFileStagedHL", "NvimTreeGitFileDeletedHL", "NvimTreeGitFileRenamedHL",
+    "NvimTreeGitFileMergeHL", "NvimTreeGitFolderDirtyHL", "NvimTreeGitFolderStagedHL",
+    "NvimTreeGitFolderDeletedHL", "NvimTreeGitFolderRenamedHL", "NvimTreeGitFolderMergeHL",
+  }) do
+    vim.api.nvim_set_hl(0, group, { fg = colors.changed })
+  end
+end
+tree_git_highlights()
+vim.api.nvim_create_autocmd("ColorScheme", { callback = tree_git_highlights })
+local tree_refresh_timer
+local function refresh_tree_git_status()
+  if tree_refresh_timer then tree_refresh_timer:stop() end
+  tree_refresh_timer = vim.defer_fn(function()
+    local tree = require("nvim-tree.api")
+    if tree.tree.is_visible() then tree.tree.reload() end
+  end, 150)
+end
+vim.api.nvim_create_autocmd({ "FocusGained", "TermLeave", "TermClose", "BufWritePost", "CursorHold" }, {
+  callback = refresh_tree_git_status,
+})
+vim.api.nvim_create_autocmd("BufEnter", {
+  pattern = { "*/.git/index", "*/.git/HEAD" },
+  callback = refresh_tree_git_status,
 })
 vim.keymap.set("n", "<leader>e", "<cmd>NvimTreeToggle<CR>", { desc = "Toggle project tree" })
 vim.keymap.set("n", "<leader>E", "<cmd>NvimTreeFindFile<CR>", { desc = "Reveal current file" })
