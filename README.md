@@ -10,6 +10,7 @@ nix-shell ~/nix/shell.nix
 
 进入后可以直接使用：
 
+- 通用软件：`git`、`drawio`、`gtkwave`、`nix-direnv`、`ripgrep`。
 - `vim 文件名`：加载项目内的 Neovim、插件和工具。
 - Fcitx5：图形会话中自动后台启动；已运行时保留当前实例；检测到搜狗/Fcitx 4 时提示先退出。退出 shell 后继续运行。
 - `fcitx5-configtool`：输入法 GUI 设置。
@@ -23,6 +24,8 @@ nix-shell ~/nix/shell.nix
 每个应用原有的独立 nix-shell 入口仍可使用。统一入口复用它们的依赖和启动逻辑，Vim 的隔离目录只作用于 Vim 进程，不影响后台 Fcitx5。
 
 ## 增加软件
+
+无需额外配置的通用软件统一添加到根目录的 `application.nix`，保持 `shell.nix` 只负责组合各模块。
 
 在新目录编写返回 `pkgs.mkShell` 的配置，然后在 `shell.nix` 的 `applications` 中添加：
 

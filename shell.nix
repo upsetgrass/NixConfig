@@ -7,6 +7,7 @@
 let
   # Add future application shells here. Use the same nixpkgs for all of them.
   applications = {
+    application = import ./application.nix { inherit pkgs; };
     vim = import ./vim/default.nix { inherit pkgs; };
     fcitx5 = import ./fcitx5/default.nix { inherit pkgs stopServicesOnExit; };
     # edge = import ./edge/default.nix { inherit pkgs; };
