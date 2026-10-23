@@ -21,6 +21,7 @@ vim.opt.wrap = false
 vim.opt.splitright = true
 vim.opt.splitbelow = true
 vim.opt.undofile = true
+vim.opt.autoread = false
 vim.opt.rulerformat = '%l,%{charcol(".")} %P'
 vim.opt.winbar = "%{%&buftype == '' ? '%f %m%r' : ''%}"
 vim.opt.statusline = "%{%&buftype == '' ? '' : '%f '%}%h%w%m%r%=%l,%{charcol('.')} %P"
@@ -43,7 +44,16 @@ vim.keymap.set("n", "<leader>cv", function()
   vim.fn.setreg('"', path)
   vim.notify("Copied path: " .. path)
 end, { desc = "Copy absolute file path" })
+vim.keymap.set({ "x", "s" }, "<C-S-c>", '"+y', {
+  silent = true, desc = "Copy selection to system clipboard",
+})
+vim.keymap.set({ "x", "s" }, "<leader>y", '"+y', {
+  silent = true, desc = "Copy selection to system clipboard",
+})
 vim.keymap.set("n", "<leader>q", "<cmd>quitall<CR>", { silent = true })
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
+  command = "checktime",
+})
 vim.api.nvim_create_autocmd("BufWritePre", {
   callback = function()
     local view = vim.fn.winsaveview()
@@ -476,7 +486,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
 
 vim.api.nvim_create_autocmd("VimLeavePre", {
   callback = function()
-    local root = project_root_for(last_code_file) 
+    local root = project_root_for(last_code_file)
     local files, seen = {}, {}
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       local path = vim.api.nvim_buf_get_name(buf)

@@ -1,12 +1,13 @@
 # 零散
 - `Ctrl-w w`    切换窗口
 - `<leader>r`   打开/关闭右侧文件大纲树
-- `Ctrl-w w`    切换目录、正文、大纲
 - `fzf`
   - `<leader>f`   查找项目文件(不区分大小写)
   - `<leader>g`   搜索项目文本(不区分大小写)
   - `<leader>fc`  切换文件名匹配的大小写模式
 - `<leader>cv`    复制当前文件绝对路径；终端中用 `Ctrl-Shift-v`，或退出终端输入模式后按 `p` 粘贴
+- `Ctrl-Shift-C` / `<leader>y`：VISUAL模式下，复制选中内容到系统剪贴板；若终端截获组合键则使用 `<leader>y`
+- `:e!`           外部修改文件后，将修改应用到vim文件中（当前vim的修改会被覆盖）
 - 缩进：Markdown、文本等每层 2 空格；Scala、C/C++、Lua 等编程语言每层 4 空格
 - `<leader>tt`    打开/关闭浮动终端
 - `<leader>h`     打开/关闭本帮助

@@ -24,6 +24,7 @@ vim 文件名
 | 终端内 `Ctrl-]` | 返回外层 Neovim 普通模式；再按 `<leader>tt` 关闭终端 |
 | `<leader>h` | 打开/关闭 `~/nix/vim/help.md` 帮助浮窗 |
 | `<leader>cv` | 复制当前文件绝对路径到系统剪贴板和 Vim 默认寄存器 |
+| Visual 模式 `Ctrl-Shift-C` / `<leader>y` | 复制选中内容到系统剪贴板，可粘贴到外部程序 |
 | `gd` / `Ctrl-Enter` | 跳转到定义 |
 | `gr` / `Ctrl-Space` | 查找引用（包括调用位置） |
 | `<leader>ci` / `<leader>co` | 查看谁调用当前函数 / 当前函数调用谁（需要服务器支持） |
@@ -107,6 +108,10 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 `snacks.nvim` 已启用图片文档功能。为避免部分终端对行内占位符支持不完整导致布局变形，当前使用浮动预览而不是强制把图片嵌入文本行。把光标放在 `![说明](图片路径)` 上按 `<leader>i` 预览；`:checkhealth snacks` 可检查终端和图片依赖。图片路径相对于 Markdown 文件目录。
 
 ## 终端和其他命令
+
+鼠标选中正文会进入 Visual 模式。按 `Ctrl-Shift-C` 或 `<leader>y` 可将选区复制到系统剪贴板，然后可在终端、浏览器等外部程序粘贴。GNOME Terminal 默认截获 `Ctrl-Shift-C`；若该组合键没有触发 Neovim Visual 复制，请在终端设置中关闭或修改“复制”快捷键，或直接使用 `<leader>y`。Nix 环境包含 X11 的 `xclip` 和 Wayland 的 `wl-copy` 剪贴板提供程序。
+
+已启用 `autoread`。当磁盘文件被外部程序修改且当前缓冲区没有未保存修改时，重新聚焦 Vim、切换缓冲区或短暂停留后会自动执行 `checktime` 并重新读取文件；当前缓冲区有未保存内容时不会静默覆盖。
 
 按 `<leader>tt` 打开浮动 shell，运行 `ls`、`make`、`git status` 等简单命令。终端中的 `Esc` 会传给正在运行的程序；按 `Ctrl-]` 回到外层普通模式，再按 `<leader>tt` 关闭浮窗。
 

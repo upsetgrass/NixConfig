@@ -43,7 +43,7 @@ let
   };
 
   editorTools = with pkgs; [
-    fzf fd ripgrep imagemagick glib
+    fzf fd ripgrep imagemagick glib xclip wl-clipboard
     nil lua-language-server bash-language-server clang-tools pyright
     rust-analyzer marksman vscode-langservers-extracted typescript-language-server
     metals gopls
