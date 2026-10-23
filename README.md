@@ -14,7 +14,11 @@ nix-shell ~/nix/shell.nix
 - Fcitx5：图形会话中自动后台启动；已运行时保留当前实例；检测到搜狗/Fcitx 4 时提示先退出。退出 shell 后继续运行。
 - `fcitx5-configtool`：输入法 GUI 设置。
 - `fcitx5-nix-apply`：备份并应用项目内的字体、主题、emoji、标点和翻页设置，然后重启输入法。
-- `edge-fcitx5`、`firefox-fcitx5`、`chrome-fcitx5`：本机浏览器输入法兼容入口，浏览器需已安装。
+- `microsoft-edge`、`microsoft-edge-stable`：Nix 提供的 Edge 及配置包装命令。
+- `edge-fcitx5`、`firefox-fcitx5`、`chrome-fcitx5`：浏览器输入法兼容入口；Edge 优先使用 Nix 包，其他浏览器需已安装。
+- `edge-apply-settings`：在 Edge 完全退出后，应用恢复上次会话、左侧垂直标签和默认折叠标签窗格的设置。
+- `edge-account-status`：检查独立 Profile 中是否存在账号 `934768061@qq.com`。
+- `edge-import-system-profile`：一次性复制系统 Edge Profile 到 Nix Edge Profile；执行前必须退出全部 Edge 进程。
 
 每个应用原有的独立 nix-shell 入口仍可使用。统一入口复用它们的依赖和启动逻辑，Vim 的隔离目录只作用于 Vim 进程，不影响后台 Fcitx5。
 
@@ -35,6 +39,16 @@ myApp = import ./my-app/my-app.nix { inherit pkgs; };
 此入口提供交互式 shell，不设置登录自启动，也不改变桌面上已经运行的程序的环境。后续接入 Home Manager 时，可逐步将共享变量转为 `home.sessionVariables`，把各应用的包、配置和服务分别交给 Home Manager 管理。
 
 Fcitx5 的 GUI 修改保存在用户配置目录，不会自动写回 Git 项目；详细使用方式见 `fcitx5/README.md`。分享统一环境请提供整个项目目录。首次运行需要下载依赖。
+
+## Edge
+
+进入 `nix-shell ~/nix/shell.nix` 后，`microsoft-edge` 和 `microsoft-edge-stable` 指向 Nix store 中的 Edge 包装命令，而不是 `/usr/bin`。Nix Edge 固定使用 `~/.config/nix-edge`，与系统 Edge 的 `~/.config/microsoft-edge` 隔离，因此不会被已运行的系统 Edge 接管。包装命令启动前会在 Nix Edge 未运行时原子更新默认 Profile 的 `Preferences`，并传递 `--restore-last-session`：恢复上次会话、启用左侧垂直标签、默认折叠标签窗格，同时关闭购物、优惠券、推荐、新标签页内容等推广入口。启动器加载仓库内的 MV3 广告和追踪域名拦截规则，并启用 Edge 内置的侵入式广告过滤。
+
+首次使用前，若要保留当前系统 Edge 的登录状态、标签和书签，先完全退出 Edge，再在 Nix shell 中运行 `edge-import-system-profile`。该命令只在 Nix Profile 尚不存在时复制，绝不覆盖现有 Nix Profile。跨机器时该仓库会应用相同的 Edge 配置；当前旧式 `nix-shell` 入口仍使用各机器的 `<nixpkgs>`，因此不能锁定完全相同的 Edge 二进制版本。账号凭据、Cookie 和最近会话属于本机私有数据，不能安全地随 Git 或 Nix 配置复制。每台新机器应在 Nix Edge 中登录账号；启用 Edge 同步后可同步浏览器数据。
+
+Nix shell 之外的普通终端不会修改全局 `PATH`，因此此时 `which microsoft-edge` 仍显示 `/usr/bin/microsoft-edge`，这是预期行为。运行 `nix-shell ~/nix/shell.nix` 后再执行 `which microsoft-edge`，应显示 `/nix/store/...-microsoft-edge-nix-launcher/bin/microsoft-edge`。
+
+已登录的 Microsoft 账号由 Edge 的用户 Profile 管理，不能也不应把密码写入 Nix 配置。本机默认 Profile 只记住 `934768061@qq.com`，这不等同于已登录；可运行 `edge-account-status` 检查记录。请在 Nix Edge 右上角个人资料菜单中选择登录，在 Microsoft 登录页填写密码并启用同步。密码不要填写进仓库、Nix 表达式或 Nix store。直接运行系统二进制而不经过桌面菜单或 `edge-fcitx5` 时，可先运行 `edge-apply-settings`。
 
 ## 退出时清理后台输入法
 

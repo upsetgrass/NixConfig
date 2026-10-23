@@ -9,6 +9,7 @@ let
   applications = {
     vim = import ./vim/default.nix { inherit pkgs; };
     fcitx5 = import ./fcitx5/default.nix { inherit pkgs stopServicesOnExit; };
+    # edge = import ./edge/default.nix { inherit pkgs; };
   };
   applicationShells = builtins.attrValues applications;
   # inputsFrom merges dependencies and shellHooks, but not environment variables.
