@@ -47,7 +47,7 @@ end, { desc = "Copy absolute file path" })
 vim.keymap.set({ "x", "s" }, "<C-S-c>", '"+y', {
   silent = true, desc = "Copy selection to system clipboard",
 })
-vim.keymap.set({ "x", "s" }, "<leader>y", '"+y', {
+vim.keymap.set({ "x", "s" }, "<leader>c", '"+y', {
   silent = true, desc = "Copy selection to system clipboard",
 })
 vim.keymap.set("n", "<leader>q", "<cmd>quitall<CR>", { silent = true })
@@ -71,10 +71,20 @@ vim.cmd([[
 require("nvim-tree").setup({
   hijack_netrw = true,
   sync_root_with_cwd = true,
-  update_focused_file = { enable = true },
+  -- Do not let nvim-tree expand the active file automatically: that would
+  -- overwrite the per-project expansion state restored below.  <leader>E
+  -- remains the explicit "reveal current file" action.
+  update_focused_file = { enable = false },
   view = { side = "left" },
   filters = { git_ignored = false },
-  git = { enable = true, show_on_dirs = true, show_on_open_dirs = true },
+  git = {
+    enable = true,
+    show_on_dirs = true,
+    show_on_open_dirs = true,
+    -- Large Scala/Chisel repositories can exceed nvim-tree's 400 ms default.
+    -- A timeout must not silently turn every restored node back to plain white.
+    timeout = 3000,
+  },
   renderer = {
     add_trailing = true,
     highlight_git = "name",
@@ -133,6 +143,10 @@ local function tree_git_highlights()
 end
 tree_git_highlights()
 vim.api.nvim_create_autocmd("ColorScheme", { callback = tree_git_highlights })
+local tree_events = require("nvim-tree.api").events
+tree_events.subscribe(tree_events.Event.TreeOpen, function()
+  tree_git_highlights()
+end)
 local tree_refresh_timer
 local function refresh_tree_git_status()
   if tree_refresh_timer then tree_refresh_timer:stop() end
@@ -509,6 +523,13 @@ local function project_root_for(path)
   return vim.fn.getcwd()
 end
 
+-- A Neovim process represents one project session.  Keep this root fixed:
+-- opening the personal help file or another file outside the project must not
+-- overwrite the session belonging to the project that was originally opened.
+local startup_arg_path = vim.fn.argc() > 0 and vim.fn.argv(0) or ""
+local session_root = project_root_for(startup_arg_path)
+if project_file(startup_arg_path, session_root) then last_code_file = startup_arg_path end
+
 local function expanded_tree_dirs(node, result)
   for _, child in ipairs(node.nodes or {}) do
     if child.nodes and child.open then
@@ -532,14 +553,14 @@ vim.api.nvim_create_autocmd("BufEnter", {
   callback = function(event)
     if vim.bo[event.buf].buftype == "" and vim.bo[event.buf].filetype ~= "gitcommit" then
       local name = vim.api.nvim_buf_get_name(event.buf)
-      if name ~= "" and not name:find("/%.git/", 1, false) then last_code_file = name end
+      if project_file(name, session_root) then last_code_file = name end
     end
   end,
 })
 
 vim.api.nvim_create_autocmd("VimLeavePre", {
   callback = function()
-    local root = project_root_for(last_code_file)
+    local root = session_root
     local files, seen = {}, {}
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       local path = vim.api.nvim_buf_get_name(buf)
@@ -590,11 +611,11 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
 })
 
 vim.defer_fn(function()
-  local arg_path = vim.fn.argc() > 0 and vim.fn.argv(0) or ""
+  local arg_path = startup_arg_path
   if arg_path ~= "" and vim.fn.fnamemodify(arg_path, ":p"):find("/%.git/", 1, false) then
     return
   end
-  local root = project_root_for(arg_path)
+  local root = session_root
   local path = session_path(root)
   if vim.fn.filereadable(path) == 0 then return end
   local ok, state = pcall(vim.json.decode, table.concat(vim.fn.readfile(path), "\n"))
@@ -618,12 +639,18 @@ vim.defer_fn(function()
     local tree = require("nvim-tree.api")
     local tree_root = vim.fn.isdirectory(state.tree_root or "") == 1 and state.tree_root or root
     tree.tree.open({ path = tree_root })
-    local expanded = {}
-    for _, dir in ipairs(state.tree_dirs or {}) do expanded[dir] = true end
-    tree.tree.expand_all(nil, { expand_until = function(_, node)
-      return expanded[node.absolute_path] == true
-    end })
     vim.cmd("wincmd p")
+    -- nvim-tree may automatically reveal the active buffer on startup. Reset
+    -- that transient expansion, then replay exactly the saved directory list.
+    vim.defer_fn(function()
+      if not tree.tree.is_visible() then return end
+      local expanded = {}
+      for _, dir in ipairs(state.tree_dirs or {}) do expanded[dir] = true end
+      tree.tree.collapse_all()
+      tree.tree.expand_all(nil, { expand_until = function(_, node)
+        return expanded[node.absolute_path] == true
+      end })
+    end, 60)
   end
   if state.outline_open then outline.open({ focus_outline = false }) end
   vim.defer_fn(function()
@@ -644,5 +671,5 @@ vim.defer_fn(function()
     if focus_win and focus_win > 0 and vim.api.nvim_win_is_valid(focus_win) then
       vim.api.nvim_set_current_win(focus_win)
     end
-  end, 200)
+  end, 350)
 end, 150)
