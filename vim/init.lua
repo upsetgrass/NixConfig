@@ -34,6 +34,13 @@ require("ibl").setup({
 
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", { silent = true })
 vim.keymap.set("n", "<leader>w", "<cmd>write<CR>", { silent = true })
+-- Keep Ctrl-w exclusively as the Normal-mode window-command prefix.  In
+-- Insert mode it otherwise deletes the previous word; command-line and
+-- terminal modes may also consume it before Neovim can switch windows.
+vim.keymap.set({ "i", "x", "s", "o", "c", "t" }, "<C-w>", "<Nop>", {
+  silent = true,
+  desc = "Disable Ctrl-w outside Normal mode",
+})
 vim.keymap.set("n", "<leader>cv", function()
   local path = vim.fn.expand("%:p")
   if path == "" or vim.bo.buftype ~= "" then
