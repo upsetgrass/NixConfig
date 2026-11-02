@@ -188,6 +188,33 @@ require("gitsigns").setup({
   end,
 })
 
+local function toggle_git_blame_list()
+  local blame_windows = {}
+  for _, winid in ipairs(vim.api.nvim_list_wins()) do
+    local bufnr = vim.api.nvim_win_get_buf(winid)
+    local filetype = vim.bo[bufnr].filetype
+    local name = vim.api.nvim_buf_get_name(bufnr)
+    if filetype == "fugitiveblame" or name:match("^fugitiveblame://") then
+      table.insert(blame_windows, winid)
+    end
+  end
+
+  if #blame_windows > 0 then
+    for _, winid in ipairs(blame_windows) do
+      if vim.api.nvim_win_is_valid(winid) then
+        pcall(vim.api.nvim_win_close, winid, true)
+      end
+    end
+    return
+  end
+
+  local ok, err = pcall(vim.cmd, "Git blame")
+  if not ok then
+    vim.notify("Git blame 打开失败：" .. tostring(err), vim.log.levels.ERROR)
+  end
+end
+vim.keymap.set("n", "<leader>l", toggle_git_blame_list, { desc = "Toggle Git blame list" })
+
 vim.g.project_history_no_data_notified = 1
 require("project").setup({
   patterns = {

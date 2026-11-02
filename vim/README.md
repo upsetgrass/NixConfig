@@ -25,6 +25,7 @@ vim 文件名
 | `<leader>h` | 打开/关闭 `~/nix/vim/help.md` 帮助浮窗 |
 | `<leader>cv` | 复制当前文件绝对路径到系统剪贴板和 Vim 默认寄存器 |
 | Visual 模式 `Ctrl-Shift-C` / `<leader>y` | 复制选中内容到系统剪贴板，可粘贴到外部程序 |
+| `<leader>l` | 打开/关闭当前文件的 Git blame 列表 |
 | `gd` / `Ctrl-Enter` | 跳转到定义 |
 | `gr` / `Ctrl-Space` | 查找引用（包括调用位置） |
 | `<leader>ci` / `<leader>co` | 查看谁调用当前函数 / 当前函数调用谁（需要服务器支持） |
@@ -103,7 +104,7 @@ Scala 已加入 Treesitter parser 和 Metals LSP。即使项目没有成功导�
 
 ## Git 辅助
 
-Git 仓库中会显示新增、修改、删除行的标记和行号高亮，并在当前行显示 blame 信息。`[h` / `]h` 跳到上一个/下一个变更块，`<leader>gp` 预览变更，`<leader>gb` 查看当前行完整 blame。
+Git 仓库中会显示新增、修改、删除行的标记和行号高亮，并在当前行显示 blame 信息。`[h` / `]h` 跳到上一个/下一个变更块，`<leader>gp` 预览变更，`<leader>gb` 查看当前行完整 blame。`<leader>l` 使用 Fugitive 打开当前文件的完整 blame 列表，再按一次关闭该列表并保留正文窗口。
 
 ## LSP、补全和语法
 

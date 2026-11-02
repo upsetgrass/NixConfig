@@ -16,6 +16,7 @@
 - `:close`        关闭光标所在窗口
 - `<leader>gp`    浮窗预览光标所在的变更块
 - `<leader>gb`    查看当前行的提交作者、时间和提交信息
+- `<leader>l`     打开/关闭当前文件的 Git blame 列表
 - `:%s/[src]/[dest]/g`  将src批量替换为dest
 # 项目树
 - `<leader>e`     打开/关闭项目目录树

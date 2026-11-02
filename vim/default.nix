@@ -29,6 +29,7 @@ let
       outlineTreesitterProvider
       toggleterm-nvim
       gitsigns-nvim
+      vim-fugitive
       indent-blankline-nvim
       blink-cmp
       nvim-lspconfig
