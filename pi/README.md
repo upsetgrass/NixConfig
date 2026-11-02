@@ -1,7 +1,8 @@
 # Pi
 
-统一 Nix shell 加载 pi/default.nix，提供 Pi 与 Node.js 24。当前用户在
-~/.npm-global/bin/pi 安装了较新的 Pi；进入 shell 后优先使用它。
+统一 Nix shell 加载 pi/default.nix，提供 Nix 管理的 Pi 与 Node.js 24。
+运行 nix-shell pi/ 后，pi 命令应来自 Nix store。
+Pi 版本由当前 nixpkgs 决定；本机目前为 0.80.3，与全局 npm 安装的版本不同。
 
 中转站、模型和默认选项分别保存在 pi/models.json、pi/settings.json，
 作为非敏感配置的记录。本机 Pi 已独立配置在 ~/.pi/agent/ 下；这些仓库文件
