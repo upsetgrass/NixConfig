@@ -7,5 +7,6 @@ pkgs.mkShell {
     gtkwave
     nix-direnv
     ripgrep
+    lazygit
   ];
 }
