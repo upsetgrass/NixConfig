@@ -1,0 +1,5 @@
+{
+  "defaultProvider": "ai901",
+  "defaultModel": "gpt-6.1-sol",
+  "defaultThinkingLevel": "high"
+}
