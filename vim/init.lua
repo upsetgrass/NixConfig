@@ -205,8 +205,15 @@ fzf.setup({
   fzf_opts = { ["--ignore-case"] = true },
   grep = { rg_opts = "--column --line-number --no-heading --color=always --ignore-case --max-columns=4096 -e" },
 })
-vim.keymap.set("n", "<leader>f", "<cmd>FzfLua files<CR>", { desc = "Find project file" })
-vim.keymap.set("n", "<leader>g", "<cmd>FzfLua live_grep<CR>", { desc = "Search project text" })
+local function fzf_bottom_window()
+  return { winopts = { split = "belowright new" } }
+end
+vim.keymap.set("n", "<leader>f", function()
+  fzf.files(fzf_bottom_window())
+end, { desc = "Find project file in bottom window" })
+vim.keymap.set("n", "<leader>g", function()
+  fzf.live_grep(fzf_bottom_window())
+end, { desc = "Search project text in bottom window" })
 vim.keymap.set("n", "<leader>b", "<cmd>FzfLua buffers<CR>", { desc = "Find open buffer" })
 vim.keymap.set("n", "<leader>fc", function()
   local ignore = vim.g.fzf_ignore_case ~= false
