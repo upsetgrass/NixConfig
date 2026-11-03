@@ -156,13 +156,18 @@ tree_events.subscribe(tree_events.Event.TreeOpen, function()
 end)
 local tree_refresh_timer
 local function refresh_tree_git_status()
+  -- Reloading rebuilds the rendered node list while preserving only the old
+  -- line number.  When Git results change the visible rows this can move the
+  -- cursor to another node, so never refresh while the user is navigating the
+  -- tree.  `R` remains available for an explicit refresh.
+  if vim.bo.filetype == "NvimTree" then return end
   if tree_refresh_timer then tree_refresh_timer:stop() end
   tree_refresh_timer = vim.defer_fn(function()
     local tree = require("nvim-tree.api")
     if tree.tree.is_visible() then tree.tree.reload() end
   end, 150)
 end
-vim.api.nvim_create_autocmd({ "FocusGained", "TermLeave", "TermClose", "BufWritePost", "CursorHold" }, {
+vim.api.nvim_create_autocmd({ "FocusGained", "TermLeave", "TermClose", "BufWritePost" }, {
   callback = refresh_tree_git_status,
 })
 vim.api.nvim_create_autocmd("BufEnter", {
