@@ -167,7 +167,7 @@ local function refresh_tree_git_status()
     if tree.tree.is_visible() then tree.tree.reload() end
   end, 150)
 end
-vim.api.nvim_create_autocmd({ "FocusGained", "TermLeave", "TermClose", "BufWritePost" }, {
+vim.api.nvim_create_autocmd({ "TermLeave", "TermClose", "BufWritePost" }, {
   callback = refresh_tree_git_status,
 })
 vim.api.nvim_create_autocmd("BufEnter", {
