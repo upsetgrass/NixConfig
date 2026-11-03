@@ -233,7 +233,7 @@ fzf.setup({
   grep = { rg_opts = "--column --line-number --no-heading --color=always --ignore-case --max-columns=4096 -e" },
 })
 local function fzf_bottom_window()
-  return { winopts = { split = "belowright new" } }
+  return { winopts = { split = "botright new" } }
 end
 vim.keymap.set("n", "<leader>f", function()
   fzf.files(fzf_bottom_window())

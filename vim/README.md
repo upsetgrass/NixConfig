@@ -16,8 +16,8 @@ vim 文件名
 | `<leader>e` | 打开/关闭项目目录树 |
 | `<leader>r` | 打开/关闭右侧文件大纲树 |
 | `Ctrl-w w` | 切换目录、正文、大纲 |
-| `<leader>f` | 在底部窗口中用 fzf 查找项目文件 |
-| `<leader>g` | 在底部窗口中用 fzf 搜索项目文本 |
+| `<leader>f` | 在整个 Vim 底部的全宽窗口中用 fzf 查找项目文件 |
+| `<leader>g` | 在整个 Vim 底部的全宽窗口中用 fzf 搜索项目文本 |
 | `<leader>fc` | 切换 fzf 文件名匹配的大小写模式 |
 | `<leader>tt` | 打开/关闭浮动终端 |
 | `:shell` | 打开交互式终端分屏；在 shell 中输入 `exit` 返回 |
