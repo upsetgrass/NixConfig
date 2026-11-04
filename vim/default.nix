@@ -31,6 +31,7 @@ let
       gitsigns-nvim
       vim-fugitive
       indent-blankline-nvim
+      markdown-preview-nvim
       blink-cmp
       nvim-lspconfig
       (nvim-treesitter.withPlugins (parsers: map (name: builtins.getAttr name parsers) [
@@ -44,7 +45,7 @@ let
   };
 
   editorTools = with pkgs; [
-    fzf fd ripgrep imagemagick glib xclip wl-clipboard
+    fzf fd ripgrep imagemagick glib xclip wl-clipboard xdg-utils
     nil lua-language-server bash-language-server clang-tools pyright
     rust-analyzer marksman vscode-langservers-extracted typescript-language-server
     metals gopls

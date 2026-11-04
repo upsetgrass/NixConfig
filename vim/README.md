@@ -23,6 +23,7 @@ vim 文件名
 | `:shell` | 打开交互式终端分屏；在 shell 中输入 `exit` 返回 |
 | 终端内 `Ctrl-]` | 返回外层 Neovim 普通模式；再按 `<leader>tt` 关闭终端 |
 | `<leader>h` | 打开/关闭 `~/nix/vim/help.md` 帮助浮窗 |
+| `<leader>mp` | 打开/关闭当前 Markdown 文件的浏览器实时预览 |
 | `<leader>cv` | 复制当前文件绝对路径到系统剪贴板和 Vim 默认寄存器 |
 | Visual 模式 `Ctrl-Shift-C` / `<leader>y` | 复制选中内容到系统剪贴板，可粘贴到外部程序 |
 | `<leader>l` | 打开/关闭当前文件的 Git blame 列表 |
@@ -77,7 +78,7 @@ Scala 已加入 Treesitter parser 和 Metals LSP。即使项目没有成功导�
 
 ## 语法高亮语言
 
-`indent-blankline.nvim` 自动显示缩进虚线，每层宽度跟随文件的缩进设置，空行也会显示引导线。Markdown、文本、YAML 等自然语言或配置文件默认使用两个空格；Scala、C/C++、Lua、Python、Rust、Go、Java、JavaScript/TypeScript、Shell、Nix、Verilog/SystemVerilog 等编程语言使用四个空格。项目树、大纲和终端不显示这类引导线。`:IBLDisable` 临时关闭，`:IBLEnable` 重新开启。
+`indent-blankline.nvim` 自动显示缩进虚线，每层宽度跟随文件的缩进设置，空行也会显示引导线。Markdown、文本、YAML 等自然语言或配置文件默认使用两个空格；Scala、C/C++、Lua、Python、Rust、Go、Java、JavaScript/TypeScript、Shell、Nix、Verilog/SystemVerilog 等编程语言使用四个空格。Makefile 是特殊例外：按 `Tab` 会插入 GNU Make 命令所要求的真实 Tab 字符，并按标准宽度 8 显示，避免 `missing separator` / `缺失分隔符`。项目树、大纲和终端不显示缩进引导线。`:IBLDisable` 临时关闭，`:IBLEnable` 重新开启。
 
 已启用 Treesitter 高亮：Markdown、C、C++、Python、Scala/Chisel、JSON、Lua、Verilog/SystemVerilog，以及 Go、Java、C#、PHP、Ruby、Rust、TypeScript/TSX、Nix、YAML、TOML、HTML、CSS 等。`.v`、`.sv`、`.svh` 会自动按 SystemVerilog 解析；Chisel 源码按 Scala 解析。
 
@@ -115,6 +116,12 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 ## Markdown 图片
 
 `snacks.nvim` 已启用图片文档功能。为避免部分终端对行内占位符支持不完整导致布局变形，当前使用浮动预览而不是强制把图片嵌入文本行。把光标放在 `![说明](图片路径)` 上按 `<leader>i` 预览；`:checkhealth snacks` 可检查终端和图片依赖。图片路径相对于 Markdown 文件目录。
+
+## Markdown 整篇预览
+
+打开 `.md` 文件后按 `<leader>mp`，`markdown-preview.nvim` 会使用系统默认浏览器打开渲染后的整篇文档；再次按 `<leader>mp` 关闭预览服务。预览包含标题、列表、表格、代码块、任务列表、链接和图片，编辑或保存文件后浏览器会自动刷新。预览只监听本机 `127.0.0.1`，不会向局域网开放。
+
+也可以直接使用 `:MarkdownPreview`、`:MarkdownPreviewStop` 和 `:MarkdownPreviewToggle`。该命令只对 Markdown 缓冲区启用；若浏览器没有自动打开，命令行会显示本地预览 URL，可复制到浏览器访问。
 
 ## 终端和其他命令
 

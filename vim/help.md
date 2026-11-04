@@ -9,9 +9,9 @@
 - `<leader>cv`    复制当前文件绝对路径；终端中用 `Ctrl-Shift-v`，或退出终端输入模式后按 `p` 粘贴
 - `Ctrl-Shift-C` / `<leader>y`：VISUAL模式下，复制选中内容到系统剪贴板；若终端截获组合键则使用 `<leader>y`
 - `:e!`           外部修改文件后，将修改应用到vim文件中（当前vim的修改会被覆盖）
-- 缩进：Markdown、文本等每层 2 空格；Scala、C/C++、Lua 等编程语言每层 4 空格
 - `<leader>tt`    打开/关闭浮动终端
 - `<leader>h`     打开/关闭本帮助
+- `<leader>mp`    打开/关闭当前 Markdown 文件的浏览器实时预览
 - `Ctrl+o`        回到跳转前的位置
 - `:close`        关闭光标所在窗口
 - `<leader>gp`    浮窗预览光标所在的变更块

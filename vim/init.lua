@@ -254,6 +254,28 @@ vim.keymap.set("n", "<leader>fc", function()
   vim.notify("fzf: " .. (vim.g.fzf_ignore_case and "ignore case" or "smart case"))
 end, { desc = "Toggle fzf case mode" })
 
+-- Render the current Markdown document in the system browser.  The Nix
+-- package already contains its Node dependencies, so it does not read or
+-- install anything from an external Neovim configuration.
+vim.g.mkdp_auto_start = 0
+vim.g.mkdp_auto_close = 1
+vim.g.mkdp_refresh_slow = 0
+vim.g.mkdp_command_for_global = 0
+vim.g.mkdp_open_to_the_world = 0
+vim.g.mkdp_open_ip = "127.0.0.1"
+vim.g.mkdp_echo_preview_url = 1
+vim.g.mkdp_page_title = "${name} - Markdown Preview"
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "markdown",
+  callback = function(event)
+    vim.keymap.set("n", "<leader>mp", "<cmd>MarkdownPreviewToggle<CR>", {
+      buffer = event.buf,
+      silent = true,
+      desc = "Toggle Markdown browser preview",
+    })
+  end,
+})
+
 local outline = require("outline")
 outline.setup({
   providers = {
@@ -363,7 +385,14 @@ local four_space_filetypes = {
 
 vim.api.nvim_create_autocmd("FileType", {
   callback = function(event)
-    if four_space_filetypes[vim.bo[event.buf].filetype] then
+    local filetype = vim.bo[event.buf].filetype
+    if filetype == "make" then
+      -- GNU Make recipes require a literal tab as their first character.
+      vim.bo[event.buf].expandtab = false
+      vim.bo[event.buf].shiftwidth = 8
+      vim.bo[event.buf].tabstop = 8
+      vim.bo[event.buf].softtabstop = 0
+    elseif four_space_filetypes[filetype] then
       vim.bo[event.buf].expandtab = true
       vim.bo[event.buf].shiftwidth = 4
       vim.bo[event.buf].tabstop = 4
@@ -374,10 +403,10 @@ vim.api.nvim_create_autocmd("FileType", {
       vim.bo[event.buf].tabstop = 2
       vim.bo[event.buf].softtabstop = 2
     end
-    if vim.bo[event.buf].filetype == "verilog" then
+    if filetype == "verilog" then
       vim.treesitter.language.register("systemverilog", "verilog")
     end
-    local lang = vim.treesitter.language.get_lang(vim.bo[event.buf].filetype)
+    local lang = vim.treesitter.language.get_lang(filetype)
     if lang and pcall(vim.treesitter.language.add, lang) then
       pcall(vim.treesitter.start, event.buf, lang)
     end
