@@ -12,6 +12,10 @@ models.json、settings.json，并在本机 auth.json 中为 ai901 设置 API Key
 
 快捷键记录在 pi/keybindings.json：Shift+Enter 换行、Enter 发送，
 并保留 Ctrl+J 作为换行备用键。本机文件位于 ~/.pi/agent/keybindings.json。
+如果终端把 Shift+Enter 和 Enter 发送成相同字节，Pi 的快捷键配置无法区分它们。
+GNOME Terminal 3.44 / VTE 0.68 存在这个限制；Ctrl+J 仍可换行。
+VS Code 内置终端若自定义了 Shift+Enter，应向终端发送 CSI-u 序列
+\u001b[13;2u，而不是普通回车或 Alt+Enter 序列。
 
 ai901 配置列出中转站的六个 GPT 对话模型与两个 DeepSeek 对话模型。
 gpt-image-2 和 gpt-image-2.5 是图片生成模型，不作为 Pi 对话模型列出。

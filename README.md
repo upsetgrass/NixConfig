@@ -1,8 +1,6 @@
 # 常用应用的 Nix 环境
 
-Pi 的安装与独立中转站配置见 pi/README.md。
-
-统一启动：
+nixpkgs 管已有软件版本，npins 管 nixpkgs 之外的外部源码版本，Nix derivation 负责把源码变成可用的软件或配置
 
 ```bash
 nix-shell ~/nix/shell.nix
@@ -12,7 +10,7 @@ nix-shell ~/nix/shell.nix
 
 进入后可以直接使用：
 
-- 通用软件：`git`、`drawio`、`gtkwave`、`nix-direnv`、`ripgrep`。
+- 通用软件：`git`、`gh`、`drawio`、`gtkwave`、`direnv`、`nix-direnv`、`npins`、`starship`、`bash-completion`、`ripgrep`、`lazygit`、`htop`、`gparted`。
 - `vim 文件名`：加载项目内的 Neovim、插件和工具。
 - Fcitx5：图形会话中自动后台启动；已运行时保留当前实例；检测到搜狗/Fcitx 4 时提示先退出。退出 shell 后继续运行。
 - `fcitx5-configtool`：输入法 GUI 设置。
@@ -37,7 +35,41 @@ myApp = import ./my-app/my-app.nix { inherit pkgs; };
 
 统一入口通过 `inputsFrom` 合并各应用的依赖和 `shellHook`，无需复制包列表或启动脚本。所有应用使用同一个传入的 `pkgs`。
 
-应用需要的环境变量在自身配置中定义，同时通过 `passthru.sessionVariables` 导出，供统一入口合并。`inputsFrom` 本身不会继承环境变量。公共变量写在 `environment.nix` 中，它们优先于应用默认值；目前该文件为空，供后续迁移使用。
+应用需要的环境变量在自身配置中定义，同时通过 `passthru.sessionVariables` 导出，供统一入口合并。`inputsFrom` 本身不会继承环境变量。公共变量、代理函数、alias、补全、direnv 和 Starship 初始化集中写在 `environment.nix` 中，它们优先于应用默认值。
+
+## 代理与终端环境
+
+默认进入 shell 时启用 `http://127.0.0.1:7897`。当前 shell 中可运行 `proxy_off`、`proxy_on` 和 `proxy_status` 来关闭、恢复或查看代理。临时禁用默认代理：
+
+```bash
+nix-shell ~/nix --arg enableProxy false
+```
+
+临时使用其他代理地址：
+
+```bash
+nix-shell ~/nix --argstr proxyUrl http://127.0.0.1:7890
+```
+
+交互式 Bash 使用 Starship 作为唯一提示符实现，并由 direnv hook 自动处理 `.envrc`。项目生成的 direnv 配置会先加载用户已有的 `~/.config/direnv/direnvrc`，再启用 nix-direnv。
+
+## 版本固定（npins）
+
+`npins/sources.json` 固定 nixpkgs 和其他外部源码的提交与哈希，`npins/default.nix` 是 npins 自动生成的导入器，不应手工修改。项目当前固定：
+
+- `nixpkgs`：跟踪 `nixos-unstable`，但实际构建始终使用 `sources.json` 记录的具体提交。
+- `ori-fcitx5`：固定到项目当前使用的主题提交，并设置为 frozen，普通 `npins update` 不会移动它。
+
+进入统一 shell 后可以直接维护 pins：
+
+```bash
+npins show
+npins update --dry-run
+npins update nixpkgs
+npins verify
+```
+
+只有执行新增、更新、冻结或验证 pin 时才需要 `npins` 命令。普通 `nix-shell`、构建和运行只读取已提交的 `npins/` 文件，不要求用户提前全局安装 npins。
 
 ## 配置与迁移
 
@@ -49,7 +81,7 @@ Fcitx5 的 GUI 修改保存在用户配置目录，不会自动写回 Git 项目
 
 进入 `nix-shell ~/nix/shell.nix` 后，`microsoft-edge` 和 `microsoft-edge-stable` 指向 Nix store 中的 Edge 包装命令，而不是 `/usr/bin`。Nix Edge 固定使用 `~/.config/nix-edge`，与系统 Edge 的 `~/.config/microsoft-edge` 隔离，因此不会被已运行的系统 Edge 接管。包装命令启动前会在 Nix Edge 未运行时原子更新默认 Profile 的 `Preferences`，并传递 `--restore-last-session`：恢复上次会话、启用左侧垂直标签、默认折叠标签窗格，同时关闭购物、优惠券、推荐、新标签页内容等推广入口。启动器加载仓库内的 MV3 广告和追踪域名拦截规则，并启用 Edge 内置的侵入式广告过滤。
 
-首次使用前，若要保留当前系统 Edge 的登录状态、标签和书签，先完全退出 Edge，再在 Nix shell 中运行 `edge-import-system-profile`。该命令只在 Nix Profile 尚不存在时复制，绝不覆盖现有 Nix Profile。跨机器时该仓库会应用相同的 Edge 配置；当前旧式 `nix-shell` 入口仍使用各机器的 `<nixpkgs>`，因此不能锁定完全相同的 Edge 二进制版本。账号凭据、Cookie 和最近会话属于本机私有数据，不能安全地随 Git 或 Nix 配置复制。每台新机器应在 Nix Edge 中登录账号；启用 Edge 同步后可同步浏览器数据。
+首次使用前，若要保留当前系统 Edge 的登录状态、标签和书签，先完全退出 Edge，再在 Nix shell 中运行 `edge-import-system-profile`。该命令只在 Nix Profile 尚不存在时复制，绝不覆盖现有 Nix Profile。统一入口使用 npins 固定的 nixpkgs，因此提交相同的 `npins/sources.json` 后，各机器会使用同一个 nixpkgs 提交。账号凭据、Cookie 和最近会话属于本机私有数据，不能安全地随 Git 或 Nix 配置复制。每台新机器应在 Nix Edge 中登录账号；启用 Edge 同步后可同步浏览器数据。
 
 Nix shell 之外的普通终端不会修改全局 `PATH`，因此此时 `which microsoft-edge` 仍显示 `/usr/bin/microsoft-edge`，这是预期行为。运行 `nix-shell ~/nix/shell.nix` 后再执行 `which microsoft-edge`，应显示 `/nix/store/...-microsoft-edge-nix-launcher/bin/microsoft-edge`。
 
