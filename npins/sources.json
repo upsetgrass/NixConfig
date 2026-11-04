@@ -1,0 +1,32 @@
+{
+  "pins": {
+    "nixpkgs": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Nixos",
+        "repo": "nixpkgs"
+      },
+      "branch": "nixos-unstable",
+      "submodules": false,
+      "revision": "0bb2eedc20e4739f29e8045034f2828ad7054f8f",
+      "url": "https://github.com/Nixos/nixpkgs/archive/0bb2eedc20e4739f29e8045034f2828ad7054f8f.tar.gz",
+      "hash": "sha256-fiPJ88izTVucjeo2EQ3jk4aWmLg03I1D4vxnX2QjEgE="
+    },
+    "ori-fcitx5": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Reverier-Xu",
+        "repo": "Ori-fcitx5"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "d2cf5df38f11e4e14dcf9436af5b9f8fa0087c55",
+      "url": "https://github.com/Reverier-Xu/Ori-fcitx5/archive/d2cf5df38f11e4e14dcf9436af5b9f8fa0087c55.tar.gz",
+      "hash": "sha256-46O/wCRphjVkYCbr29QqyiGBG27u3UG2DnrInZSQkIA=",
+      "frozen": true
+    }
+  },
+  "version": 8
+}

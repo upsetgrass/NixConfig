@@ -1,12 +1,12 @@
-{ pkgs ? import <nixpkgs> {}, stopServicesOnExit ? false }:
+{
+  pkgs ? import (import ../npins).nixpkgs { config.allowUnfree = true; },
+  stopServicesOnExit ? false,
+  oriSource ? (import ../npins).ori-fcitx5,
+}:
 
 let
   inherit (pkgs) lib;
-  # A commit pins the upstream theme even when the repository changes later.
-  oriSource = builtins.fetchGit {
-    url = "https://github.com/Reverier-Xu/Ori-fcitx5.git";
-    rev = "d2cf5df38f11e4e14dcf9436af5b9f8fa0087c55";
-  };
+  # npins supplies a fixed, hashed theme source without evaluation-time Git access.
   oriTheme = pkgs.runCommand "fcitx5-ori-light" {} ''
     mkdir -p "$out/share/fcitx5/themes"
     cp -r ${oriSource}/OriLight "$out/share/fcitx5/themes/OriLight"
