@@ -595,6 +595,63 @@ local function restore_window_view(win, view)
   pcall(vim.api.nvim_win_call, win, function() vim.fn.winrestview(view) end)
 end
 
+-- Store only normal project-file windows.  Plugin sidebars are restored by
+-- their own APIs below, while transient terminal/fzf/help windows are omitted.
+local function capture_code_layout(layout, root, windows, win_to_id)
+  if type(layout) ~= "table" then return nil end
+  if layout[1] == "leaf" then
+    local win = layout[2]
+    if not win or not vim.api.nvim_win_is_valid(win) then return nil end
+    local buf = vim.api.nvim_win_get_buf(win)
+    local file = vim.api.nvim_buf_get_name(buf)
+    if vim.bo[buf].buftype ~= "" or not project_file(file, root) then return nil end
+    local id = #windows + 1
+    windows[id] = {
+      id = id,
+      file = file,
+      cursor = vim.api.nvim_win_get_cursor(win),
+      view = window_view(win),
+    }
+    win_to_id[win] = id
+    return { kind = "leaf", id = id }
+  end
+
+  if layout[1] ~= "row" and layout[1] ~= "col" then return nil end
+  local children = {}
+  for _, child in ipairs(layout[2] or {}) do
+    local saved = capture_code_layout(child, root, windows, win_to_id)
+    if saved then children[#children + 1] = saved end
+  end
+  if #children == 0 then return nil end
+  if #children == 1 then return children[1] end
+  return { kind = layout[1], children = children }
+end
+
+local function restore_code_layout(layout, windows, root, target_win, restored)
+  if type(layout) ~= "table" or not vim.api.nvim_win_is_valid(target_win) then return end
+  if layout.kind == "leaf" then
+    local saved = windows and windows[layout.id]
+    if not saved or not project_file(saved.file, root) then return end
+    vim.api.nvim_set_current_win(target_win)
+    vim.cmd("silent edit " .. vim.fn.fnameescape(saved.file))
+    restored[layout.id] = target_win
+    return
+  end
+
+  if (layout.kind ~= "row" and layout.kind ~= "col") or type(layout.children) ~= "table" then return end
+  local child_wins = { target_win }
+  -- Create every sibling before recursively splitting any child, otherwise a
+  -- nested first child would cause later siblings to be inserted inside it.
+  for index = 2, #layout.children do
+    vim.api.nvim_set_current_win(child_wins[index - 1])
+    vim.cmd(layout.kind == "row" and "rightbelow vsplit" or "rightbelow split")
+    child_wins[index] = vim.api.nvim_get_current_win()
+  end
+  for index, child in ipairs(layout.children) do
+    restore_code_layout(child, windows, root, child_wins[index], restored)
+  end
+end
+
 vim.api.nvim_create_autocmd("BufEnter", {
   callback = function(event)
     if vim.bo[event.buf].buftype == "" and vim.bo[event.buf].filetype ~= "gitcommit" then
@@ -638,12 +695,17 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
       end
     end
     local current_win = vim.api.nvim_get_current_win()
+    local code_windows, win_to_id = {}, {}
+    local code_layout = capture_code_layout(vim.fn.winlayout(), root, code_windows, win_to_id)
     local state = {
       root = root, files = files, active = active, cursor = cursor,
       tree_open = tree.tree.is_visible(), outline_open = outline.is_open(),
       tree_root = nodes and nodes.absolute_path or root, tree_dirs = dirs,
       code_view = window_view(code_win), tree_view = window_view(tree_win),
       outline_view = window_view(outline_win),
+      code_layout = code_layout, code_windows = code_windows,
+      active_code_id = win_to_id[code_win], focus_code_id = win_to_id[current_win],
+      window_count = #vim.api.nvim_list_wins(), winrestcmd = vim.fn.winrestcmd(),
       focus = current_win == tree_win and "tree"
         or current_win == outline_win and "outline" or "code",
     }
@@ -675,11 +737,21 @@ vim.defer_fn(function()
       vim.cmd("badd " .. vim.fn.fnameescape(file))
     end
   end
-  if project_file(state.active, root) then
+  local restored_code_windows = {}
+  if not explicit_file and type(state.code_layout) == "table" and type(state.code_windows) == "table" then
+    pcall(vim.cmd, "silent! only")
+    restore_code_layout(state.code_layout, state.code_windows, root,
+      vim.api.nvim_get_current_win(), restored_code_windows)
+  elseif project_file(state.active, root) then
     if not explicit_file then vim.cmd("edit " .. vim.fn.fnameescape(state.active)) end
     if vim.api.nvim_buf_get_name(0) == state.active and type(state.cursor) == "table" then
       pcall(vim.api.nvim_win_set_cursor, 0, state.cursor)
     end
+  end
+  local active_code_win = restored_code_windows[state.active_code_id or state.focus_code_id]
+    or vim.fn.bufwinid(state.active or "")
+  if active_code_win and active_code_win > 0 and vim.api.nvim_win_is_valid(active_code_win) then
+    vim.api.nvim_set_current_win(active_code_win)
   end
   if state.tree_open then
     local tree = require("nvim-tree.api")
@@ -701,7 +773,8 @@ vim.defer_fn(function()
   if state.outline_open then outline.open({ focus_outline = false }) end
   vim.defer_fn(function()
     local tree_win = require("nvim-tree.api").tree.winid()
-    local code_win = vim.fn.bufwinid(state.active or "")
+    local code_win = restored_code_windows[state.active_code_id or state.focus_code_id]
+      or vim.fn.bufwinid(state.active or "")
     local outline_win
     for _, win in ipairs(vim.api.nvim_list_wins()) do
       if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "Outline" then
@@ -709,11 +782,22 @@ vim.defer_fn(function()
         break
       end
     end
-    restore_window_view(code_win, state.code_view)
+    if type(state.winrestcmd) == "string"
+      and #vim.api.nvim_list_wins() == tonumber(state.window_count) then
+      pcall(vim.cmd, "silent! " .. state.winrestcmd)
+    end
+    if type(state.code_windows) == "table" then
+      for id, saved in ipairs(state.code_windows) do
+        restore_window_view(restored_code_windows[id], saved.view)
+      end
+    else
+      restore_window_view(code_win, state.code_view)
+    end
     restore_window_view(tree_win, state.tree_view)
     restore_window_view(outline_win, state.outline_view)
     local focus_win = state.focus == "tree" and tree_win
-      or state.focus == "outline" and outline_win or code_win
+      or state.focus == "outline" and outline_win
+      or restored_code_windows[state.focus_code_id or state.active_code_id] or code_win
     if focus_win and focus_win > 0 and vim.api.nvim_win_is_valid(focus_win) then
       vim.api.nvim_set_current_win(focus_win)
     end
