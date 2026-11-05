@@ -1,102 +1,86 @@
-# 常用应用的 Nix 环境
+# NixConfig
 
-nixpkgs 管已有软件版本，npins 管 nixpkgs 之外的外部源码版本，Nix derivation 负责把源码变成可用的软件或配置
+本仓库集中保存 Nix 配置。目前使用 Home Manager 管理用户软件、Bash 环境、
+Vim、Fcitx5 和 Pi，后续还可以增加开发 shell、独立软件包或 NixOS 配置。
+仓库不使用 Flake；`npins/` 固定 nixpkgs、Home Manager 和外部 Fcitx5 主题。
 
-```bash
-nix-shell ~/nix/shell.nix
+仓库位置：
+
+```text
+~/work/NixConfig
 ```
 
-也可以运行 `nix-shell ~/nix`，或进入此目录后执行 `nix-shell`。
+## 结构
 
-进入后可以直接使用：
+- `usr/default.nix`：仓库内的 Home Manager 用户配置入口。
+- `usr/packages.nix`：组合无需额外 Home Manager 配置的软件和应用包。
+- `usr/environment.nix`：代理、PATH、Bash、alias、补全、direnv、fzf 和 Starship。
+- `usr/vim/`：隔离配置的 Neovim 包装器、插件和语言工具。
+- `usr/fcitx5/`：Fcitx5 构建、主题、词库、包装命令和用户 systemd 服务。
+- `usr/pi/`：Pi 包、键位与 memory skill；包含 API key 的本机配置不进入 Git。
+- `usr/edge/`：可选 Edge 包装器，默认不安装。
+- `default.nix`：使用 npins 固定版本构建 activation package。
+- `npins/`：固定外部源码版本，`default.nix` 不应手工修改。
 
-- 通用软件：`git`、`gh`、`drawio`、`gtkwave`、`direnv`、`nix-direnv`、`npins`、`starship`、`bash-completion`、`ripgrep`、`lazygit`、`htop`、`gparted`。
-- `vim 文件名`：加载项目内的 Neovim、插件和工具。
-- Fcitx5：图形会话中自动后台启动；已运行时保留当前实例；检测到搜狗/Fcitx 4 时提示先退出。退出 shell 后继续运行。
-- `fcitx5-configtool`：输入法 GUI 设置。
-- `fcitx5-nix-apply`：备份并应用项目内的字体、主题、emoji、标点和翻页设置，然后重启输入法。
-- `microsoft-edge`、`microsoft-edge-stable`：Nix 提供的 Edge 及配置包装命令。
-- `edge-fcitx5`、`firefox-fcitx5`、`chrome-fcitx5`：浏览器输入法兼容入口；Edge 优先使用 Nix 包，其他浏览器需已安装。
-- `edge-apply-settings`：在 Edge 完全退出后，应用恢复上次会话、左侧垂直标签和默认折叠标签窗格的设置。
-- `edge-account-status`：检查独立 Profile 中是否存在账号 `934768061@qq.com`。
-- `edge-import-system-profile`：一次性复制系统 Edge Profile 到 Nix Edge Profile；执行前必须退出全部 Edge 进程。
+## 使用
 
-每个应用原有的独立 nix-shell 入口仍可使用。统一入口复用它们的依赖和启动逻辑，Vim 的隔离目录只作用于 Vim 进程，不影响后台 Fcitx5。
-
-## 增加软件
-
-无需额外配置的通用软件统一添加到根目录的 `application.nix`，保持 `shell.nix` 只负责组合各模块。
-
-在新目录编写返回 `pkgs.mkShell` 的配置，然后在 `shell.nix` 的 `applications` 中添加：
+Home Manager 的标准入口保持为一个薄文件：
 
 ```nix
-myApp = import ./my-app/my-app.nix { inherit pkgs; };
+{ imports = [ ~/work/NixConfig/usr ]; }
 ```
 
-统一入口通过 `inputsFrom` 合并各应用的依赖和 `shellHook`，无需复制包列表或启动脚本。所有应用使用同一个传入的 `pkgs`。
+该文件位于 `~/.config/home-manager/home.nix`，只负责导入本仓库。
 
-应用需要的环境变量在自身配置中定义，同时通过 `passthru.sessionVariables` 导出，供统一入口合并。`inputsFrom` 本身不会继承环境变量。公共变量、代理函数、alias、补全、direnv 和 Starship 初始化集中写在 `environment.nix` 中，它们优先于应用默认值。
-
-## 代理与终端环境
-
-默认进入 shell 时启用 `http://127.0.0.1:7897`。当前 shell 中可运行 `proxy_off`、`proxy_on` 和 `proxy_status` 来关闭、恢复或查看代理。临时禁用默认代理：
+首次部署或没有 `home-manager` 命令时：
 
 ```bash
-nix-shell ~/nix --arg enableProxy false
+git clone git@github.com:upsetgrass/NixConfig.git ~/work/NixConfig
+mkdir -p ~/.config/home-manager
+printf '%s\n' '{ imports = [ ~/work/NixConfig/usr ]; }' \
+  > ~/.config/home-manager/home.nix
+cd ~/work/NixConfig
+nix-build default.nix -o result
+./result/activate
 ```
 
-临时使用其他代理地址：
+部署一次后，Home Manager 本身会进入用户 profile。以后使用：
 
 ```bash
-nix-shell ~/nix --argstr proxyUrl http://127.0.0.1:7890
+home-manager build
+home-manager switch
 ```
 
-交互式 Bash 使用 Starship 作为唯一提示符实现，并由 direnv hook 自动处理 `.envrc`。项目生成的 direnv 配置会先加载用户已有的 `~/.config/direnv/direnvrc`，再启用 nix-direnv。
+Bash alias `hms` 等价于上述 `switch` 命令。新终端会自动获得所有软件和环境，
+不再需要 `nix-shell`、`.envrc` 或 `nsh`。
 
-## 版本固定（npins）
+## 版本更新
 
-`npins/sources.json` 固定 nixpkgs 和其他外部源码的提交与哈希，`npins/default.nix` 是 npins 自动生成的导入器，不应手工修改。项目当前固定：
-
-- `nixpkgs`：跟踪 `nixos-unstable`，但实际构建始终使用 `sources.json` 记录的具体提交。
-- `ori-fcitx5`：固定到项目当前使用的主题提交，并设置为 frozen，普通 `npins update` 不会移动它。
-
-进入统一 shell 后可以直接维护 pins：
+普通构建只读取已固定的 pin。更新前先查看变化：
 
 ```bash
 npins show
 npins update --dry-run
-npins update nixpkgs
-npins verify
+npins update nixpkgs home-manager
+home-manager switch
 ```
 
-只有执行新增、更新、冻结或验证 pin 时才需要 `npins` 命令。普通 `nix-shell`、构建和运行只读取已提交的 `npins/` 文件，不要求用户提前全局安装 npins。
-
-## 配置与迁移
-
-此入口提供交互式 shell，不设置登录自启动，也不改变桌面上已经运行的程序的环境。后续接入 Home Manager 时，可逐步将共享变量转为 `home.sessionVariables`，把各应用的包、配置和服务分别交给 Home Manager 管理。
-
-Fcitx5 的 GUI 修改保存在用户配置目录，不会自动写回 Git 项目；详细使用方式见 `fcitx5/README.md`。分享统一环境请提供整个项目目录。首次运行需要下载依赖。
+`ori-fcitx5` 已冻结，普通 `npins update` 不会移动它。
 
 ## Edge
 
-进入 `nix-shell ~/nix/shell.nix` 后，`microsoft-edge` 和 `microsoft-edge-stable` 指向 Nix store 中的 Edge 包装命令，而不是 `/usr/bin`。Nix Edge 固定使用 `~/.config/nix-edge`，与系统 Edge 的 `~/.config/microsoft-edge` 隔离，因此不会被已运行的系统 Edge 接管。包装命令启动前会在 Nix Edge 未运行时原子更新默认 Profile 的 `Preferences`，并传递 `--restore-last-session`：恢复上次会话、启用左侧垂直标签、默认折叠标签窗格，同时关闭购物、优惠券、推荐、新标签页内容等推广入口。启动器加载仓库内的 MV3 广告和追踪域名拦截规则，并启用 Edge 内置的侵入式广告过滤。
+Edge 配置保留在仓库，但沿用旧配置中的默认关闭状态，因为首次安装需要下载较大的
+浏览器包。需要启用时，在 `usr/default.nix` 的 `imports` 中加入：
 
-首次使用前，若要保留当前系统 Edge 的登录状态、标签和书签，先完全退出 Edge，再在 Nix shell 中运行 `edge-import-system-profile`。该命令只在 Nix Profile 尚不存在时复制，绝不覆盖现有 Nix Profile。统一入口使用 npins 固定的 nixpkgs，因此提交相同的 `npins/sources.json` 后，各机器会使用同一个 nixpkgs 提交。账号凭据、Cookie 和最近会话属于本机私有数据，不能安全地随 Git 或 Nix 配置复制。每台新机器应在 Nix Edge 中登录账号；启用 Edge 同步后可同步浏览器数据。
-
-Nix shell 之外的普通终端不会修改全局 `PATH`，因此此时 `which microsoft-edge` 仍显示 `/usr/bin/microsoft-edge`，这是预期行为。运行 `nix-shell ~/nix/shell.nix` 后再执行 `which microsoft-edge`，应显示 `/nix/store/...-microsoft-edge-nix-launcher/bin/microsoft-edge`。
-
-已登录的 Microsoft 账号由 Edge 的用户 Profile 管理，不能也不应把密码写入 Nix 配置。本机默认 Profile 只记住 `934768061@qq.com`，这不等同于已登录；可运行 `edge-account-status` 检查记录。请在 Nix Edge 右上角个人资料菜单中选择登录，在 Microsoft 登录页填写密码并启用同步。密码不要填写进仓库、Nix 表达式或 Nix store。直接运行系统二进制而不经过桌面菜单或 `edge-fcitx5` 时，可先运行 `edge-apply-settings`。
-
-## 退出时清理后台输入法
-
-默认退出后保留后台 Fcitx5。希望退出时一并停止本次 shell 启动的输入法，使用：
-
-```bash
-nix-shell ~/nix/shell.nix --arg stopServicesOnExit true
+```nix
+./edge/home.nix
 ```
 
-然后执行 `exit` 或按 Ctrl+D。shell 内的 PATH、输入法等环境变量随 shell 退出而结束；清理选项还会向进入时新启动的 Fcitx5 发送正常退出信号。进入前已经运行的 Fcitx5 不会被关闭。若希望默认清理，可把 `shell.nix` 的参数默认值改为 `true`。
+然后运行 `hms`。
 
-此选项只管理统一入口启动的 Fcitx5。之后手动重启替换的输入法、手动启动的浏览器及其他后台程序不在自动清理范围内；浏览器请自行退出。未来增加后台服务时，由对应软件配置管理其生命周期，统一入口仅传递清理开关。
+## 本机数据
 
-`stopServicesOnExit` 的进程记录和退出清理由 `fcitx5/fcitx5.nix` 实现，`shell.nix` 仅传递参数。独立使用同样支持：`nix-shell ~/nix/fcitx5/fcitx5.nix --arg stopServicesOnExit true`。
+- `~/.pi/agent/auth.json`、`models.json` 和 `settings.json` 可能包含 API key，
+  继续作为本机文件，不由 Home Manager 或 Git 管理。
+- Edge Profile、Cookie、账号令牌和 Fcitx5 运行时缓存不进入仓库。
+- 修改 Home Manager 管理的文件后必须重新运行 `hms` 才会生效。

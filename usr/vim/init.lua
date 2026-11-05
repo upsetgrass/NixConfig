@@ -439,7 +439,7 @@ vim.lsp.config("lua_ls", {
     if root and (vim.uv.fs_stat(root .. "/.luarc.json") or vim.uv.fs_stat(root .. "/.luarc.jsonc")) then
       return
     end
-    if root == vim.fn.expand("~/nix/vim") then
+    if root == vim.fn.expand("~/work/NixConfig/usr/vim") then
       client.config.settings.Lua = vim.tbl_deep_extend("force", client.config.settings.Lua, {
         runtime = { version = "LuaJIT" },
         workspace = { library = { vim.env.VIMRUNTIME }, checkThirdParty = false },
@@ -530,7 +530,7 @@ local function show_personal_help()
     personal_help_win = nil
     return
   end
-  local path = vim.fn.expand("~/nix/vim/help.md")
+  local path = vim.fn.expand("~/work/NixConfig/usr/vim/help.md")
   if vim.fn.filereadable(path) == 0 then
     vim.notify("Help file not found: " .. path, vim.log.levels.WARN)
     return
@@ -566,7 +566,7 @@ local function show_personal_help()
 end
 vim.keymap.set("n", "<leader>h", show_personal_help, { desc = "Toggle personal Vim help" })
 
-local session_dir = vim.env.NVIM_NIX_SESSION_DIR or vim.fn.expand("~/nix/vim/state/sessions")
+local session_dir = vim.env.NVIM_NIX_SESSION_DIR or vim.fn.expand("~/.local/state/nvim-nix/sessions")
 local last_code_file
 local project_markers = {
   ".git", "flake.nix", "shell.nix", "vim.nix", "Cargo.toml", "package.json",
@@ -683,6 +683,10 @@ end
 
 vim.api.nvim_create_autocmd("BufEnter", {
   callback = function(event)
+    -- Opening a directory lets nvim-tree replace and wipe Neovim's temporary
+    -- directory buffer.  A queued BufEnter callback can therefore receive a
+    -- buffer number which is already invalid by the time this function runs.
+    if not event.buf or not vim.api.nvim_buf_is_valid(event.buf) then return end
     if vim.bo[event.buf].buftype == "" and vim.bo[event.buf].filetype ~= "gitcommit" then
       local name = vim.api.nvim_buf_get_name(event.buf)
       if project_file(name, session_root) then last_code_file = name end

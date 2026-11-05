@@ -28,5 +28,5 @@ for candidate in "${candidates[@]}"; do
     exec "$executable" --ozone-platform=x11 "$@"
   fi
 done
-echo "$browser is not installed in PATH; install it or enter ~/nix/shell.nix." >&2
+echo "$browser is not installed in PATH; install it with Home Manager or the system package manager." >&2
 exit 127
