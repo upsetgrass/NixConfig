@@ -4,3 +4,4 @@ vim/state/
 .direnv/
 /result
 /result-*
+*/edge/*
