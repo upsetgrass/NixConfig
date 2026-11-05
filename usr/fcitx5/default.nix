@@ -1,7 +1,7 @@
 {
-  pkgs ? import (import ../npins).nixpkgs { config.allowUnfree = true; },
+  pkgs ? import (import ../../npins).nixpkgs { config.allowUnfree = true; },
   stopServicesOnExit ? false,
-  oriSource ? (import ../npins).ori-fcitx5,
+  oriSource ? (import ../../npins).ori-fcitx5,
 }:
 
 let

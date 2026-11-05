@@ -1,4 +1,4 @@
-{ pkgs ? import (import ../npins).nixpkgs { config.allowUnfree = true; } }:
+{ pkgs ? import (import ../../npins).nixpkgs { config.allowUnfree = true; } }:
 
 let
   outlineTreesitterProvider = pkgs.vimUtils.buildVimPlugin {
