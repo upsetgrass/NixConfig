@@ -10,6 +10,7 @@
 - VISUAL模式 `<leader>c`：复制选中内容到系统剪贴板，可粘贴到外部程序
 - `:e!`           外部修改文件后，将修改应用到vim文件中（当前vim的修改会被覆盖）
 - `<leader>tt`    打开/关闭浮动终端
+- `<leader>sw`    切换当前窗口自动换行（`:set wrap` / `:set nowrap`）
 - `<leader>h`     打开/关闭本帮助
 - `<leader>mp`    打开/关闭当前 Markdown 文件的浏览器实时预览
 - `Ctrl+o`        回到跳转前的位置
@@ -18,6 +19,7 @@
 - `<leader>gb`    查看当前行的提交作者、时间和提交信息
 - `<leader>l`     打开/关闭当前文件的 Git blame 列表
 - `:%s/[src]/[dest]/g`  将src批量替换为dest
+- 注释标记 `TODO` / `FIXME` / `NOTE` / `HACK` / `WARN` / `XXX` / `BUG` 会自动高亮
 # 项目树
 - `<leader>e`     打开/关闭项目目录树
   - `<leader>o/p` 左右/上下分屏选中的项目目录树的文件

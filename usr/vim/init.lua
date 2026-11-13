@@ -76,6 +76,10 @@ require("ibl").setup({
 
 vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>", { silent = true })
 vim.keymap.set("n", "<leader>w", "<cmd>write<CR>", { silent = true })
+vim.keymap.set("n", "<leader>sw", function()
+  vim.wo.wrap = not vim.wo.wrap
+  vim.notify("wrap: " .. (vim.wo.wrap and "on" or "off"), vim.log.levels.INFO)
+end, { desc = "Toggle line wrapping" })
 -- Keep Ctrl-w exclusively as the Normal-mode window-command prefix.  In
 -- Insert mode it otherwise deletes the previous word; command-line and
 -- terminal modes may also consume it before Neovim can switch windows.
@@ -196,6 +200,48 @@ local tree_events = require("nvim-tree.api").events
 tree_events.subscribe(tree_events.Event.TreeOpen, function()
   tree_git_highlights()
 end)
+
+-- Highlight common code annotations without requiring an extra runtime
+-- plugin.  Matches are window-local so each split gets the same annotations.
+local annotation_matches = {}
+local annotation_groups = {
+  { name = "Todo", pattern = [[\<TODO\>]], fg = "#ffcc66", bg = "#3d3420" },
+  { name = "Fixme", pattern = [[\<FIXME\>]], fg = "#ff6b6b", bg = "#402326" },
+  { name = "Note", pattern = [[\<NOTE\>]], fg = "#69dafa", bg = "#1d3740" },
+  { name = "Hack", pattern = [[\<\%(HACK\|XXX\)\>]], fg = "#c099ff", bg = "#302842" },
+  { name = "Warn", pattern = [[\<\%(WARN\|WARNING\|BUG\)\>]], fg = "#ff9e64", bg = "#422d20" },
+}
+for _, item in ipairs(annotation_groups) do
+  vim.api.nvim_set_hl(0, item.name, { fg = item.fg, bg = item.bg, bold = true })
+end
+local function refresh_annotation_matches(win)
+  win = win or vim.api.nvim_get_current_win()
+  if not vim.api.nvim_win_is_valid(win) then return end
+  for _, id in ipairs(annotation_matches[win] or {}) do
+    pcall(vim.fn.matchdelete, id, win)
+  end
+  annotation_matches[win] = {}
+  local buf = vim.api.nvim_win_get_buf(win)
+  local ft = vim.bo[buf].filetype
+  if ft == "NvimTree" or ft == "Outline" or ft == "qf" or vim.bo[buf].buftype ~= "" then return end
+  for _, item in ipairs(annotation_groups) do
+    local id = vim.fn.matchadd(item.name, item.pattern, 120, -1, { window = win })
+    annotation_matches[win][#annotation_matches[win] + 1] = id
+  end
+end
+vim.api.nvim_create_autocmd({ "BufWinEnter", "WinEnter", "FileType" }, {
+  callback = function(event)
+    vim.schedule(function()
+      if vim.api.nvim_buf_is_valid(event.buf) then refresh_annotation_matches(event.win or vim.api.nvim_get_current_win()) end
+    end)
+  end,
+})
+vim.api.nvim_create_autocmd("WinClosed", {
+  callback = function(event)
+    annotation_matches[tonumber(event.match)] = nil
+  end,
+})
+vim.schedule(function() refresh_annotation_matches() end)
 -- nvim-tree updates Git status asynchronously.  Its renderer preserves the
 -- cursor line, but the node occupying that line can change after a redraw.
 -- Remember the node selected by the user and restore that exact path whenever

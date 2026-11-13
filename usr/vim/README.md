@@ -19,12 +19,14 @@ vim 文件名
 | `<leader>g` | 在整个 Vim 底部的全宽窗口中用 fzf 搜索项目文本 |
 | `<leader>fc` | 切换 fzf 文件名匹配的大小写模式 |
 | `<leader>tt` | 打开/关闭浮动终端 |
+| `<leader>sw` | 切换当前窗口的自动换行（`wrap`） |
 | `:shell` | 打开交互式终端分屏；在 shell 中输入 `exit` 返回 |
 | 终端内 `Ctrl-]` | 返回外层 Neovim 普通模式；再按 `<leader>tt` 关闭终端 |
 | `<leader>h` | 打开/关闭 `~/work/NixConfig/usr/vim/help.md` 帮助浮窗 |
 | `<leader>mp` | 打开/关闭当前 Markdown 文件的浏览器实时预览 |
 | 普通模式 `<leader>cv` | 复制当前文件绝对路径到系统剪贴板和 Vim 默认寄存器 |
 | Visual 模式 `<leader>c` | 复制选中内容到系统剪贴板，可粘贴到外部程序 |
+| 注释中的 `TODO` / `FIXME` / `NOTE` / `HACK` / `WARN` / `XXX` / `BUG` | 自动高亮；不同类别使用不同颜色 |
 | `<leader>l` | 打开/关闭当前文件的 Git blame 列表 |
 | `gd` / `Ctrl-Enter` | 跳转到定义 |
 | `gr` / `Ctrl-Space` | 查找引用（包括调用位置） |
