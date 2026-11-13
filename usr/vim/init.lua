@@ -3,6 +3,31 @@ vim.env.VIMINIT = nil
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 
+-- `argv()` is mutable and nvim-tree replaces a directory argument with its
+-- internal `NvimTree_1` buffer before this config is evaluated. `v:argv`
+-- retains the original process command line, so extract the first real file
+-- or directory argument while skipping Neovim options and Ex commands.
+local function original_startup_path()
+  local options_with_value = {
+    ["--cmd"] = true, ["-c"] = true, ["-u"] = true, ["-i"] = true,
+    ["-S"] = true, ["--listen"] = true, ["--server"] = true,
+    ["--startuptime"] = true, ["--log"] = true,
+  }
+  local skip_next = false
+  for index = 2, #vim.v.argv do
+    local argument = vim.v.argv[index]
+    if skip_next then
+      skip_next = false
+    elseif options_with_value[argument] then
+      skip_next = true
+    elseif argument:sub(1, 1) ~= "-" and argument:sub(1, 1) ~= "+" then
+      return vim.fn.fnamemodify(argument, ":p")
+    end
+  end
+  return ""
+end
+local startup_arg_path = original_startup_path()
+
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.mouse = "a"
@@ -14,6 +39,18 @@ vim.opt.tabstop = 2
 vim.opt.softtabstop = 2
 vim.opt.smartindent = true
 vim.opt.termguicolors = true
+require("onedark").setup({
+  style = "darker",
+  term_colors = true,
+  code_style = {
+    comments = "italic",
+    keywords = "none",
+    functions = "none",
+    strings = "none",
+    variables = "none",
+  },
+})
+require("onedark").load()
 vim.opt.signcolumn = "yes"
 vim.opt.cursorline = true
 vim.opt.scrolloff = 8
@@ -25,6 +62,11 @@ vim.opt.autoread = false
 vim.opt.rulerformat = '%l,%{charcol(".")} %P'
 vim.opt.winbar = "%{%&buftype == '' ? '%f %m%r' : ''%}"
 vim.opt.statusline = "%{%&buftype == '' ? '' : '%f '%}%h%w%m%r%=%l,%{charcol('.')} %P"
+
+-- Keep Vim's built-in syntax files as a fallback for uncommon file variants;
+-- supported source files switch to Treesitter in the FileType callback below.
+vim.cmd("filetype plugin indent on")
+vim.cmd("syntax enable")
 
 require("ibl").setup({
   indent = { char = "┆" },
@@ -51,9 +93,6 @@ vim.keymap.set("n", "<leader>cv", function()
   vim.fn.setreg('"', path)
   vim.notify("Copied path: " .. path)
 end, { desc = "Copy absolute file path" })
-vim.keymap.set({ "x", "s" }, "<C-S-c>", '"+y', {
-  silent = true, desc = "Copy selection to system clipboard",
-})
 vim.keymap.set({ "x", "s" }, "<leader>c", '"+y', {
   silent = true, desc = "Copy selection to system clipboard",
 })
@@ -77,6 +116,9 @@ vim.cmd([[
 
 require("nvim-tree").setup({
   hijack_netrw = true,
+  -- Git status is refreshed explicitly below.  The built-in BufWritePost
+  -- reload races with tree navigation and only preserves a line number.
+  auto_reload_on_write = false,
   sync_root_with_cwd = true,
   -- Do not let nvim-tree expand the active file automatically: that would
   -- overwrite the per-project expansion state restored below.  <leader>E
@@ -154,6 +196,40 @@ local tree_events = require("nvim-tree.api").events
 tree_events.subscribe(tree_events.Event.TreeOpen, function()
   tree_git_highlights()
 end)
+-- nvim-tree updates Git status asynchronously.  Its renderer preserves the
+-- cursor line, but the node occupying that line can change after a redraw.
+-- Remember the node selected by the user and restore that exact path whenever
+-- an asynchronous render moves the cursor to another node.
+local tree_selected_path
+local restoring_tree_cursor = false
+local function remember_tree_cursor()
+  if restoring_tree_cursor or vim.bo.filetype ~= "NvimTree" then return end
+  local node = require("nvim-tree.api").tree.get_node_under_cursor()
+  if node and node.absolute_path then tree_selected_path = node.absolute_path end
+end
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "NvimTree",
+  callback = function(event)
+    vim.api.nvim_create_autocmd({ "CursorMoved", "BufEnter" }, {
+      buffer = event.buf,
+      callback = remember_tree_cursor,
+    })
+    vim.schedule(remember_tree_cursor)
+  end,
+})
+tree_events.subscribe(tree_events.Event.TreeRendered, function()
+  if restoring_tree_cursor or not tree_selected_path then return end
+  local tree = require("nvim-tree.api")
+  local current = tree.tree.get_node_under_cursor()
+  if current and current.absolute_path == tree_selected_path then return end
+  if not vim.uv.fs_stat(tree_selected_path) then
+    tree_selected_path = current and current.absolute_path or nil
+    return
+  end
+  restoring_tree_cursor = true
+  pcall(tree.tree.find_file, { buf = tree_selected_path, focus = false })
+  restoring_tree_cursor = false
+end)
 local tree_refresh_timer
 local function refresh_tree_git_status()
   -- Reloading rebuilds the rendered node list while preserving only the old
@@ -163,8 +239,20 @@ local function refresh_tree_git_status()
   if vim.bo.filetype == "NvimTree" then return end
   if tree_refresh_timer then tree_refresh_timer:stop() end
   tree_refresh_timer = vim.defer_fn(function()
+    tree_refresh_timer = nil
+    -- The user may have entered the tree after this refresh was scheduled.
+    -- Never rebuild its nodes while the cursor is being moved there.
+    if vim.bo.filetype == "NvimTree" then return end
     local tree = require("nvim-tree.api")
-    if tree.tree.is_visible() then tree.tree.reload() end
+    if not tree.tree.is_visible() then return end
+    local selected = tree.tree.get_node_under_cursor()
+    local selected_path = selected and selected.absolute_path
+    tree.tree.reload()
+    -- A reload preserves the old line, not the node on that line.  Restore the
+    -- selected file/directory by identity so Git rendering cannot move it.
+    if selected_path and vim.uv.fs_stat(selected_path) then
+      tree.tree.find_file({ buf = selected_path, focus = false })
+    end
   end, 150)
 end
 vim.api.nvim_create_autocmd({ "TermLeave", "TermClose", "BufWritePost" }, {
@@ -328,7 +416,22 @@ end, { desc = "Focus document outline" })
 vim.keymap.set("n", "<leader>oc", outline.focus_code, { desc = "Focus code" })
 
 vim.filetype.add({
-  extension = { v = "verilog", sv = "verilog", svh = "verilog" },
+  extension = {
+    cc = "cpp", cp = "cpp", cxx = "cpp", cplusplus = "cpp",
+    hh = "cpp", hpp = "cpp", hxx = "cpp", inl = "cpp", ipp = "cpp", tpp = "cpp",
+    scala = "scala", sbt = "scala", sc = "scala",
+    mk = "make", mak = "make",
+    v = "verilog", sv = "verilog", svh = "verilog",
+  },
+  filename = {
+    ["Makefile"] = "make",
+    ["GNUmakefile"] = "make",
+    ["build.sbt"] = "scala",
+    ["build.sc"] = "scala",
+  },
+  pattern = {
+    [".*[Mm]akefile.*"] = "make",
+  },
 })
 
 require("toggleterm").setup({ direction = "float", float_opts = { border = "rounded" } })
@@ -355,25 +458,72 @@ vim.cmd([[
   cnoreabbrev <expr> shell getcmdtype() ==# ':' && getcmdline() ==# 'shell' ? 'Shell' : 'shell'
 ]])
 
-local function language_highlights()
-  local colors = {
-    comment = "#8a949e", keyword = "#c792ea", type = "#82d7e8",
-    ["function"] = "#f2cc60", ["function.method"] = "#f2cc60",
-    string = "#a8d58b", number = "#f0a67a", ["variable.parameter"] = "#e6c58f",
+local function language_semantic_highlights()
+  -- OneDark intentionally keeps identifiers subdued. Use a higher-contrast
+  -- code palette so Scala/Chisel keywords such as `val` and `class`, types,
+  -- calls, members and literals are immediately distinguishable.
+  local captures = {
+    comment = { fg = "#727169", italic = true },
+    keyword = { fg = "#ff7ab2", bold = true },
+    ["keyword.type"] = { fg = "#c099ff", bold = true },
+    ["keyword.function"] = { fg = "#c099ff", bold = true },
+    ["keyword.import"] = { fg = "#82aaff" },
+    ["keyword.modifier"] = { fg = "#ff7ab2" },
+    ["keyword.operator"] = { fg = "#ff7ab2" },
+    ["keyword.conditional"] = { fg = "#ff7ab2" },
+    ["keyword.repeat"] = { fg = "#ff7ab2" },
+    type = { fg = "#5de4c7" },
+    ["type.builtin"] = { fg = "#5de4c7" },
+    module = { fg = "#82aaff" },
+    ["function"] = { fg = "#ffd866" },
+    ["function.call"] = { fg = "#ffd866" },
+    ["function.method"] = { fg = "#ffd866" },
+    ["function.method.call"] = { fg = "#ffd866" },
+    constructor = { fg = "#ffd866" },
+    variable = { fg = "#d7dae0" },
+    ["variable.parameter"] = { fg = "#f5bde6" },
+    ["variable.member"] = { fg = "#7dcfff" },
+    property = { fg = "#7dcfff" },
+    string = { fg = "#a9dc76" },
+    character = { fg = "#a9dc76" },
+    number = { fg = "#ff9e64" },
+    ["number.float"] = { fg = "#ff9e64" },
+    boolean = { fg = "#ff9e64" },
+    constant = { fg = "#ff9e64" },
+    ["constant.builtin"] = { fg = "#ff9e64" },
+    operator = { fg = "#89ddff" },
+    attribute = { fg = "#f5bde6" },
   }
-  for _, lang in ipairs({ "c", "scala", "lua" }) do
-    for capture, color in pairs(colors) do
-      vim.api.nvim_set_hl(0, "@" .. capture .. "." .. lang, { fg = color })
+  local languages = {
+    "bash", "c", "cpp", "c_sharp", "css", "go", "html", "java",
+    "javascript", "json", "lua", "make", "markdown", "nix", "php",
+    "python", "ruby", "rust", "scala", "systemverilog", "toml", "tsx",
+    "typescript", "yaml", "zig",
+  }
+  for capture, style in pairs(captures) do
+    vim.api.nvim_set_hl(0, "@" .. capture, style)
+    for _, lang in ipairs(languages) do
+      vim.api.nvim_set_hl(0, "@" .. capture .. "." .. lang, style)
     end
-    for kind, capture in pairs({ function_ = "function", method = "function.method",
-      class = "type", struct = "type", interface = "type", parameter = "variable.parameter" }) do
+  end
+
+  for _, lang in ipairs(languages) do
+    for kind, capture in pairs({
+      namespace = "module", type = "type", class = "type", enum = "type",
+      interface = "type", struct = "type", typeParameter = "type",
+      variable = "variable", parameter = "variable.parameter", property = "variable.member",
+      enumMember = "constant", function_ = "function", method = "function.method",
+      macro = "attribute", keyword = "keyword", comment = "comment",
+      string = "string", number = "number", operator = "operator",
+      decorator = "attribute",
+    }) do
       local name = kind == "function_" and "function" or kind
       vim.api.nvim_set_hl(0, "@lsp.type." .. name .. "." .. lang, { link = "@" .. capture .. "." .. lang })
     end
   end
 end
-language_highlights()
-vim.api.nvim_create_autocmd("ColorScheme", { callback = language_highlights })
+language_semantic_highlights()
+vim.api.nvim_create_autocmd("ColorScheme", { callback = language_semantic_highlights })
 
 local four_space_filetypes = {
   bash = true, c = true, cpp = true, c_sharp = true, cuda = true, go = true,
@@ -450,6 +600,10 @@ vim.lsp.config("lua_ls", {
 })
 vim.lsp.config("metals", {
   cmd = { vim.fn.exepath("metals") },
+  root_markers = {
+    "build.sbt", "build.sc", "pom.xml", "build.gradle", "build.gradle.kts",
+    ".bsp", ".metals", ".bloop", ".git",
+  },
   init_options = { statusBarProvider = "off" },
 })
 vim.api.nvim_create_user_command("MetalsImportBuild", function()
@@ -488,20 +642,62 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 for _, server in ipairs({
   "nil_ls", "lua_ls", "bashls", "clangd", "pyright", "rust_analyzer",
-  "marksman", "html", "cssls", "ts_ls", "metals", "gopls",
+  "marksman", "html", "cssls", "jsonls", "ts_ls", "metals", "gopls",
 }) do
   vim.lsp.enable(server)
 end
 
+local function grep_symbol_fallback(action)
+  local word = vim.fn.expand("<cword>")
+  if word == "" then
+    vim.notify("No symbol under cursor", vim.log.levels.WARN)
+    return
+  end
+  vim.notify("LSP returned no " .. action .. "; searching project text for: " .. word,
+    vim.log.levels.WARN)
+  fzf.grep_cword(fzf_bottom_window())
+end
+
+local function lsp_locations_or_grep(kind)
+  local request = kind == "definition" and "textDocument/definition" or "textDocument/references"
+  local clients = vim.lsp.get_clients({ bufnr = 0, method = request })
+  if #clients == 0 then
+    grep_symbol_fallback(kind)
+    return
+  end
+
+  local on_list = function(options)
+    if not options.items or vim.tbl_isempty(options.items) then
+      grep_symbol_fallback(kind)
+      return
+    end
+    vim.fn.setqflist({}, " ", options)
+    if #options.items == 1 then
+      vim.cmd("cfirst")
+    else
+      vim.cmd("botright copen")
+    end
+  end
+
+  if kind == "definition" then
+    vim.lsp.buf.definition({ on_list = on_list })
+  else
+    vim.lsp.buf.references(nil, { on_list = on_list })
+  end
+end
+
+vim.keymap.set("n", "gd", function() lsp_locations_or_grep("definition") end,
+  { silent = true, desc = "LSP definition, project grep fallback" })
+vim.keymap.set("n", "gr", function() lsp_locations_or_grep("references") end,
+  { silent = true, desc = "LSP references, project grep fallback" })
+
 vim.api.nvim_create_autocmd("LspAttach", {
   callback = function(event)
     local opts = { buffer = event.buf, silent = true }
-    vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-    vim.keymap.set("n", "<C-CR>", vim.lsp.buf.definition, opts)
+    vim.keymap.set("n", "<C-CR>", function() lsp_locations_or_grep("definition") end, opts)
     vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
-    vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
-    vim.keymap.set("n", "<C-Space>", vim.lsp.buf.references, opts)
-    vim.keymap.set("n", "<C-@>", vim.lsp.buf.references, opts)
+    vim.keymap.set("n", "<C-Space>", function() lsp_locations_or_grep("references") end, opts)
+    vim.keymap.set("n", "<C-@>", function() lsp_locations_or_grep("references") end, opts)
     vim.keymap.set("n", "<leader>ci", vim.lsp.buf.incoming_calls, opts)
     vim.keymap.set("n", "<leader>co", vim.lsp.buf.outgoing_calls, opts)
     vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
@@ -601,7 +797,6 @@ end
 -- A Neovim process represents one project session.  Keep this root fixed:
 -- opening the personal help file or another file outside the project must not
 -- overwrite the session belonging to the project that was originally opened.
-local startup_arg_path = vim.fn.argc() > 0 and vim.fn.argv(0) or ""
 local session_root = project_root_for(startup_arg_path)
 if project_file(startup_arg_path, session_root) then last_code_file = startup_arg_path end
 
@@ -751,7 +946,14 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
   end,
 })
 
-vim.defer_fn(function()
+-- Restore the project after startup, before normal user input begins. The Nix
+-- wrapper may finish VimEnter before this file reaches its session section, so
+-- handle both an already-entered editor and the conventional startup order.
+local function restore_project_session()
+  -- nvim-tree also handles directory arguments during VimEnter. Run after all
+  -- handlers in the current event have completed, but before normal user
+  -- interaction; this avoids both directory re-hijacking and delayed jumps.
+  vim.schedule(function()
   local arg_path = startup_arg_path
   if arg_path ~= "" and vim.fn.fnamemodify(arg_path, ":p"):find("/%.git/", 1, false) then
     return
@@ -772,6 +974,12 @@ vim.defer_fn(function()
   end
   local restored_code_windows = {}
   if not explicit_file and type(state.code_layout) == "table" and type(state.code_windows) == "table" then
+    -- Opening `vim <directory>` lets nvim-tree hijack Neovim's only startup
+    -- window. Never reuse that sidebar as the target for normal file buffers:
+    -- create a real code window first, then rebuild the saved code layout.
+    if vim.bo.filetype == "NvimTree" then
+      vim.cmd("rightbelow vnew")
+    end
     pcall(vim.cmd, "silent! only")
     restore_code_layout(state.code_layout, state.code_windows, root,
       vim.api.nvim_get_current_win(), restored_code_windows)
@@ -786,53 +994,60 @@ vim.defer_fn(function()
   if active_code_win and active_code_win > 0 and vim.api.nvim_win_is_valid(active_code_win) then
     vim.api.nvim_set_current_win(active_code_win)
   end
-  if state.tree_open then
+  -- A directory argument explicitly means "open this project"; keep its tree
+  -- visible even if an older session was saved while the restore bug was
+  -- closing the sidebar. Plain `vim` still follows the saved tree state.
+  local directory_start = arg_path ~= "" and vim.fn.isdirectory(arg_path) == 1
+  if state.tree_open or directory_start then
     local tree = require("nvim-tree.api")
     local tree_root = vim.fn.isdirectory(state.tree_root or "") == 1 and state.tree_root or root
     tree.tree.open({ path = tree_root })
     vim.cmd("wincmd p")
     -- nvim-tree may automatically reveal the active buffer on startup. Reset
     -- that transient expansion, then replay exactly the saved directory list.
-    vim.defer_fn(function()
-      if not tree.tree.is_visible() then return end
+    if tree.tree.is_visible() then
       local expanded = {}
       for _, dir in ipairs(state.tree_dirs or {}) do expanded[dir] = true end
       tree.tree.collapse_all()
       tree.tree.expand_all(nil, { expand_until = function(_, node)
         return expanded[node.absolute_path] == true
       end })
-    end, 60)
+    end
   end
   if state.outline_open then outline.open({ focus_outline = false }) end
-  vim.defer_fn(function()
-    local tree_win = require("nvim-tree.api").tree.winid()
-    local code_win = restored_code_windows[state.active_code_id or state.focus_code_id]
-      or vim.fn.bufwinid(state.active or "")
-    local outline_win
-    for _, win in ipairs(vim.api.nvim_list_wins()) do
-      if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "Outline" then
-        outline_win = win
-        break
-      end
+  local tree_win = require("nvim-tree.api").tree.winid()
+  local code_win = restored_code_windows[state.active_code_id or state.focus_code_id]
+    or vim.fn.bufwinid(state.active or "")
+  local outline_win
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.bo[vim.api.nvim_win_get_buf(win)].filetype == "Outline" then
+      outline_win = win
+      break
     end
-    if type(state.winrestcmd) == "string"
-      and #vim.api.nvim_list_wins() == tonumber(state.window_count) then
-      pcall(vim.cmd, "silent! " .. state.winrestcmd)
+  end
+  if type(state.winrestcmd) == "string"
+    and #vim.api.nvim_list_wins() == tonumber(state.window_count) then
+    pcall(vim.cmd, "silent! " .. state.winrestcmd)
+  end
+  if type(state.code_windows) == "table" then
+    for id, saved in ipairs(state.code_windows) do
+      restore_window_view(restored_code_windows[id], saved.view)
     end
-    if type(state.code_windows) == "table" then
-      for id, saved in ipairs(state.code_windows) do
-        restore_window_view(restored_code_windows[id], saved.view)
-      end
-    else
-      restore_window_view(code_win, state.code_view)
-    end
-    restore_window_view(tree_win, state.tree_view)
-    restore_window_view(outline_win, state.outline_view)
-    local focus_win = state.focus == "tree" and tree_win
-      or state.focus == "outline" and outline_win
-      or restored_code_windows[state.focus_code_id or state.active_code_id] or code_win
-    if focus_win and focus_win > 0 and vim.api.nvim_win_is_valid(focus_win) then
-      vim.api.nvim_set_current_win(focus_win)
-    end
-  end, 350)
-end, 150)
+  else
+    restore_window_view(code_win, state.code_view)
+  end
+  restore_window_view(tree_win, state.tree_view)
+  restore_window_view(outline_win, state.outline_view)
+  local focus_win = state.focus == "tree" and tree_win
+    or state.focus == "outline" and outline_win
+    or restored_code_windows[state.focus_code_id or state.active_code_id] or code_win
+  if focus_win and focus_win > 0 and vim.api.nvim_win_is_valid(focus_win) then
+    vim.api.nvim_set_current_win(focus_win)
+  end
+  end)
+end
+
+-- This config reaches the session section while a directory explorer's
+-- VimEnter handler is already running. A newly registered VimEnter callback
+-- would miss that same event, so restore on the next event-loop turn directly.
+restore_project_session()

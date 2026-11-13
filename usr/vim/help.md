@@ -6,8 +6,8 @@
   - `<leader>f`   在整个 Vim 底部的全宽窗口查找项目文件(不区分大小写)
   - `<leader>g`   在整个 Vim 底部的全宽窗口搜索项目文本(不区分大小写)
   - `<leader>fc`  切换文件名匹配的大小写模式
-- `<leader>cv`    复制当前文件绝对路径；终端中用 `Ctrl-Shift-v`，或退出终端输入模式后按 `p` 粘贴
-- `Ctrl-Shift-C` / `<leader>y`：VISUAL模式下，复制选中内容到系统剪贴板；若终端截获组合键则使用 `<leader>y`
+- 普通模式 `<leader>cv`：复制当前文件绝对路径；终端中用 `Ctrl-Shift-v`，或退出终端输入模式后按 `p` 粘贴
+- VISUAL模式 `<leader>c`：复制选中内容到系统剪贴板，可粘贴到外部程序
 - `:e!`           外部修改文件后，将修改应用到vim文件中（当前vim的修改会被覆盖）
 - `<leader>tt`    打开/关闭浮动终端
 - `<leader>h`     打开/关闭本帮助
@@ -38,8 +38,9 @@
 - metal
   - `:MetalsImportBuild` Scala 项目,导入构建，让 Metals 索引项目
   - `:MetalsLog`: 查看项目日志（`q` 关闭，`:edit!` 刷新）
-- `gd` / `Ctrl-Enter`  跳转符号（类、函数、变量）定义
-- `gr` / `Ctrl-Space`  查找符号（类、函数、变量）引用
+  - 日志出现 `BSP ... Compilation failed` 表示项目构建定义报错，不是 Metals 未启动
+- `gd` / `Ctrl-Enter`  跳转符号定义；LSP 无结果时搜索项目文本
+- `gr` / `Ctrl-Space`  查找符号引用；LSP 无结果时搜索项目文本
 - `<leader>ci`         查找哪些函数/方法调用了当前函数/方法
 - `<leader>co`         查看当前函数调用了哪些函数
 - `:cclose`            关闭引用列表

@@ -1,14 +1,12 @@
-{ pkgs ? import (import ../../npins).nixpkgs { config.allowUnfree = true; } }:
+{
+  pkgs ? import (import ../../npins).nixpkgs { config.allowUnfree = true; },
+  sources ? import ../../npins,
+}:
 
 let
   outlineTreesitterProvider = pkgs.vimUtils.buildVimPlugin {
     name = "outline-treesitter-provider.nvim";
-    src = pkgs.fetchFromGitHub {
-      owner = "epheien";
-      repo = "outline-treesitter-provider.nvim";
-      rev = "22dda7329cf608368cbf725effd43daf98c27f32";
-      hash = "sha256-PFRiaQPxh+PPFGF1+yMIJIM/tGDOH7CO0xyoayDn78I=";
-    };
+    src = sources.outline-treesitter-provider;
     doCheck = false;
     postPatch = ''
       substituteInPlace lua/outline/providers/treesitter/aerial/init.lua \
@@ -16,6 +14,32 @@ let
       local node = type(nodes) == 'table' and nodes[1] or nodes"
     '';
   };
+
+  scalaHighlightOverrides = pkgs.runCommand "nvim-scala-highlight-overrides" { } ''
+    mkdir -p "$out/queries/scala"
+    cat > "$out/queries/scala/highlights.scm" <<'EOF'
+    ; extends
+
+    ; Scala's upstream query treats many uppercase identifiers as types. Chisel
+    ; commonly uses uppercase signal names, so declarations such as `val X86PC`
+    ; must retain variable highlighting instead of inheriting the type colour.
+    (val_definition
+      pattern: (identifier) @variable
+      (#set! priority 200))
+
+    (var_definition
+      pattern: (identifier) @variable
+      (#set! priority 200))
+
+    (val_declaration
+      name: (identifier) @variable
+      (#set! priority 200))
+
+    (var_declaration
+      name: (identifier) @variable
+      (#set! priority 200))
+    EOF
+  '';
 
   neovim = pkgs.neovim.override {
     withPython3 = false;
@@ -34,12 +58,14 @@ let
       markdown-preview-nvim
       blink-cmp
       nvim-lspconfig
+      onedark-nvim
       (nvim-treesitter.withPlugins (parsers: map (name: builtins.getAttr name parsers) [
         "bash" "c" "cpp" "c_sharp" "css" "go" "html" "java"
-        "javascript" "json" "lua" "markdown" "markdown_inline"
+        "javascript" "json" "lua" "make" "markdown" "markdown_inline"
         "nix" "php" "python" "ruby" "rust" "scala" "systemverilog" "toml"
         "tsx" "typescript" "vim" "vimdoc" "yaml" "zig"
       ]))
+      scalaHighlightOverrides
       snacks-nvim
     ];
   };

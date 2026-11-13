@@ -1,9 +1,8 @@
 # 独立 Neovim 环境
 
-运行：
+当前配置通过 Home Manager 安装。修改 `usr/vim/init.lua`、`usr/vim/default.nix` 或插件列表后，需要执行一次 `hms`，重新构建并切换全局 `vim`。正常运行：
 
 ```bash
-home-manager switch
 vim 文件名
 ```
 
@@ -24,8 +23,8 @@ vim 文件名
 | 终端内 `Ctrl-]` | 返回外层 Neovim 普通模式；再按 `<leader>tt` 关闭终端 |
 | `<leader>h` | 打开/关闭 `~/work/NixConfig/usr/vim/help.md` 帮助浮窗 |
 | `<leader>mp` | 打开/关闭当前 Markdown 文件的浏览器实时预览 |
-| `<leader>cv` | 复制当前文件绝对路径到系统剪贴板和 Vim 默认寄存器 |
-| Visual 模式 `Ctrl-Shift-C` / `<leader>y` | 复制选中内容到系统剪贴板，可粘贴到外部程序 |
+| 普通模式 `<leader>cv` | 复制当前文件绝对路径到系统剪贴板和 Vim 默认寄存器 |
+| Visual 模式 `<leader>c` | 复制选中内容到系统剪贴板，可粘贴到外部程序 |
 | `<leader>l` | 打开/关闭当前文件的 Git blame 列表 |
 | `gd` / `Ctrl-Enter` | 跳转到定义 |
 | `gr` / `Ctrl-Space` | 查找引用（包括调用位置） |
@@ -80,7 +79,9 @@ Scala 已加入 Treesitter parser 和 Metals LSP。即使项目没有成功导�
 
 `indent-blankline.nvim` 自动显示缩进虚线，每层宽度跟随文件的缩进设置，空行也会显示引导线。Markdown、文本、YAML 等自然语言或配置文件默认使用两个空格；Scala、C/C++、Lua、Python、Rust、Go、Java、JavaScript/TypeScript、Shell、Nix、Verilog/SystemVerilog 等编程语言使用四个空格。Makefile 是特殊例外：按 `Tab` 会插入 GNU Make 命令所要求的真实 Tab 字符，并按标准宽度 8 显示，避免 `missing separator` / `缺失分隔符`。项目树、大纲和终端不显示缩进引导线。`:IBLDisable` 临时关闭，`:IBLEnable` 重新开启。
 
-已启用 Treesitter 高亮：Markdown、C、C++、Python、Scala/Chisel、JSON、Lua、Verilog/SystemVerilog，以及 Go、Java、C#、PHP、Ruby、Rust、TypeScript/TSX、Nix、YAML、TOML、HTML、CSS 等。`.v`、`.sv`、`.svh` 会自动按 SystemVerilog 解析；Chisel 源码按 Scala 解析。
+已启用 OneDark `darker` 主题和 Treesitter 高亮：Markdown、C、C++、Makefile、Python、Scala/Chisel、JSON、Lua、Verilog/SystemVerilog，以及 Go、Java、C#、PHP、Ruby、Rust、TypeScript/TSX、Nix、YAML、TOML、HTML、CSS 等。`.cc/.cxx/.hpp/.hxx` 等按 C++ 解析，`.scala/.sbt/.sc`（包括 `build.sbt` 和 `build.sc`）按 Scala 解析，Chisel 源码因此使用 Scala 高亮；`Makefile`、`GNUmakefile`、`*makefile*` 和 `.mk/.mak` 使用 Makefile 高亮，recipe 内的 shell 命令还可使用 Bash parser。`.v/.sv/.svh` 按 SystemVerilog 解析。Treesitter 不可用时会回退到 Neovim 内置 syntax。
+
+Scala/Chisel、C/C++、Lua、Makefile 和 Nix 使用高对比语法分类：普通关键字（如 `val`）为粉色，类型关键字（如 `class`/`trait`）为紫色，类型名为青色，函数/调用为黄色，成员字段为蓝色，字符串为绿色，数字/常量为橙色，注释为灰色。
 
 如果某个文件没有高亮，可用 `:set filetype?` 查看文件类型，再用 `:TSInstallInfo`（本配置 parser 已由 Nix 固定安装）或 `:Inspect` 检查 Treesitter 状态。
 
@@ -125,7 +126,7 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 
 ## 终端和其他命令
 
-鼠标选中正文会进入 Visual 模式。按 `Ctrl-Shift-C` 或 `<leader>y` 可将选区复制到系统剪贴板，然后可在终端、浏览器等外部程序粘贴。GNOME Terminal 默认截获 `Ctrl-Shift-C`；若该组合键没有触发 Neovim Visual 复制，请在终端设置中关闭或修改“复制”快捷键，或直接使用 `<leader>y`。Nix 环境包含 X11 的 `xclip` 和 Wayland 的 `wl-copy` 剪贴板提供程序。
+鼠标选中正文会进入 Visual 模式。按 `<leader>c` 可将选区复制到系统剪贴板，然后可在终端、浏览器等外部程序粘贴。Nix 环境包含 X11 的 `xclip` 和 Wayland 的 `wl-copy` 剪贴板提供程序。普通模式下的 `<leader>cv` 仍用于复制当前文件的绝对路径。
 
 已启用 `autoread`。当磁盘文件被外部程序修改且当前缓冲区没有未保存修改时，重新聚焦 Vim、切换缓冲区或短暂停留后会自动执行 `checktime` 并重新读取文件；当前缓冲区有未保存内容时不会静默覆盖。
 
@@ -137,17 +138,23 @@ Treesitter 负责语法高亮；`:LspInfo` 查看 LSP 连接，`:Inspect` 查看
 
 ## LSP 服务器
 
-当前包含 Nix、Lua、Shell、C/C++、Python、Rust、Markdown、HTML、CSS、TypeScript/JavaScript、Scala 和 Go 的服务器。
+当前包含 Nix、Lua、Shell、C/C++、Python、Rust、Markdown、HTML、CSS、JSON、TypeScript/JavaScript、Scala 和 Go 的服务器。
+Java、C#、PHP、Ruby、Zig、Verilog/SystemVerilog、YAML 和 TOML 当前已配置 Treesitter 语法高亮，但尚未安装对应 LSP，因此这些语言暂时没有跨文件跳转、语义诊断和 LSP 补全。
 
 | 语言 | 服务器与项目要求 |
 | --- | --- |
 | C / C++ | `clangd`，开启后台索引和 clang-tidy。项目应提供 `compile_commands.json`，包含真实的头文件路径和编译参数；CMake 项目可用 `cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON` 生成。其他构建目录可在 `.clangd` 中设置 `CompileFlags.CompilationDatabase`。 |
-| Scala / Chisel | `metals`，识别 `build.sbt`、`build.sc`、Gradle 或 Maven 项目。打开 Scala 文件后接受构建导入提示，或执行 `:MetalsImportBuild` 手动导入；需要 JDK、项目构建工具及依赖下载可用。Chisel 的跳转按 Scala 项目处理。 |
+| Scala / Chisel | `metals`，识别 `build.sbt`、`build.sc`、Gradle、Maven、`.bsp`、`.metals`、`.bloop` 或 Git 项目根目录。打开 Scala 文件后接受构建导入提示，或执行 `:MetalsImportBuild` 手动导入；需要 JDK、项目构建工具及依赖下载可用。Chisel 的跳转按 Scala 项目处理。 |
 | Lua | `lua-language-server`，支持普通 Lua 文件。项目可用 `.luarc.json` / `.luarc.jsonc` 指定运行时和库；本配置目录没有这类文件时自动识别 Neovim 的 LuaJIT 和 `vim` API。 |
+| Nix / Shell / Python / Rust / Go | 分别使用 `nil`、`bash-language-server`、`pyright`、`rust-analyzer`、`gopls`。项目根目录由对应语言的常见项目文件或 `.git` 判断。 |
+| Markdown / HTML / CSS / JSON | 分别使用 `marksman` 和 VS Code language servers，提供文档符号、补全、诊断及可用的跳转能力。 |
+| JavaScript / TypeScript | `typescript-language-server`，识别 `package.json`、`tsconfig.json`、`jsconfig.json` 或 `.git`。 |
 
-把光标放在函数或符号名称上，`gd` 跳到定义，`gr` 列出引用，`<leader>ci` 列出调用者，`<leader>co` 列出被调用函数；结果列表用 `Enter` 打开，`:copen` 重新打开列表。调用层级是否可用取决于服务器。`:LspInfo` 查看连接，`:checkhealth vim.lsp` 查看启动问题。
+把光标放在函数或符号名称上，`gd` 跳到定义，`gr` 列出引用，`<leader>ci` 列出调用者，`<leader>co` 列出被调用函数。`gd` / `gr` 优先使用精确的 LSP 语义结果；服务器未连接或没有返回结果时，会自动在底部打开当前符号的项目文本搜索，避免跨文件查询静默失败。结果列表用 `Enter` 打开，`:copen` 重新打开列表。调用层级是否可用取决于服务器。`:LspInfo` 查看连接，`:checkhealth vim.lsp` 查看启动问题。
 当前 LuaLS 不提供调用层级接口，Lua 中用 `gr` 查找调用位置；`<leader>ci` / `<leader>co` 用于支持该接口的服务器。
 
 引用/调用列表用 `:cclose` 关闭，或在列表中按 `q`；`:copen` 可重新打开。`:LspInfo` 打开 LSP 健康检查，`:MetalsLog` 打开当前项目的 `.metals/metals.log`，跳到日志末尾；日志窗口按 `q` 关闭，用 `:edit!` 重新加载最新内容。`:messages` 查看 Neovim 收到的提示。普通模式 `Ctrl-Space` 同时兼容终端发送的 `Ctrl-@`；`Ctrl-Enter` 需要终端支持独立传输这个组合键，否则使用 `gd`。
 
-C、Scala 和 Lua 已使用 Treesitter 高亮，并加强关键字、类型、函数、字符串、数字、参数和注释的颜色区分；LSP 类型/函数颜色与语法高亮保持一致。语法高亮不依赖项目构建导入是否成功。
+所有已安装 Treesitter parser 的常用语言均使用统一的高对比配色，区分关键字、类型、函数、字符串、数字、参数、成员和注释；LSP 语义类型与语法高亮保持一致。语法高亮不依赖项目构建导入是否成功。
+
+Metals 能连接但跳转不完整时，先执行 `:MetalsLog`。如果日志中出现 `BSP server ... compile Compilation failed`，说明 Neovim 和 Metals 已正常启动，但项目的 SBT/Mill/Gradle/Maven 构建定义自身无法编译；需要先修复构建错误，再执行 `:MetalsImportBuild` 或重新打开项目。
