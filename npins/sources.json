@@ -26,6 +26,19 @@
       "url": "https://github.com/Nixos/nixpkgs/archive/0bb2eedc20e4739f29e8045034f2828ad7054f8f.tar.gz",
       "hash": "sha256-fiPJ88izTVucjeo2EQ3jk4aWmLg03I1D4vxnX2QjEgE="
     },
+    "outline-treesitter-provider": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "epheien",
+        "repo": "outline-treesitter-provider.nvim"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "22dda7329cf608368cbf725effd43daf98c27f32",
+      "url": "https://github.com/epheien/outline-treesitter-provider.nvim/archive/22dda7329cf608368cbf725effd43daf98c27f32.tar.gz",
+      "hash": "sha256-PFRiaQPxh+PPFGF1+yMIJIM/tGDOH7CO0xyoayDn78I="
+    },
     "ori-fcitx5": {
       "type": "Git",
       "repository": {

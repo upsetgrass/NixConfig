@@ -2,7 +2,7 @@
 
 let
   applicationShell = import ./application.nix { inherit pkgs; };
-  vimShell = import ./vim/default.nix { inherit pkgs; };
+  vimShell = import ./vim/default.nix { inherit pkgs sources; };
   fcitx5Shell = import ./fcitx5/default.nix {
     inherit pkgs;
     oriSource = sources.ori-fcitx5;
