@@ -58,6 +58,7 @@ let
       markdown-preview-nvim
       blink-cmp
       nvim-lspconfig
+      nvim-metals
       onedark-nvim
       (nvim-treesitter.withPlugins (parsers: map (name: builtins.getAttr name parsers) [
         "bash" "c" "cpp" "c_sharp" "css" "go" "html" "java"
@@ -86,14 +87,16 @@ let
     }
     trap cleanup EXIT
 
+    persistent_data="$HOME/.local/share/nvim-nix"
+    persistent_cache="$HOME/.cache/nvim-nix"
     ${pkgs.coreutils}/bin/mkdir -p \
-      "$runtime_dir/config" "$runtime_dir/data/nvim" \
-      "$runtime_dir/state" "$runtime_dir/cache"
+      "$runtime_dir/config" "$runtime_dir/state" \
+      "$persistent_data/nvim" "$persistent_cache"
 
     export XDG_CONFIG_HOME="$runtime_dir/config"
-    export XDG_DATA_HOME="$runtime_dir/data"
+    export XDG_DATA_HOME="$persistent_data"
     export XDG_STATE_HOME="$runtime_dir/state"
-    export XDG_CACHE_HOME="$runtime_dir/cache"
+    export XDG_CACHE_HOME="$persistent_cache"
     export XDG_CONFIG_DIRS="$runtime_dir/empty-config-dirs"
     export XDG_DATA_DIRS="$runtime_dir/empty-data-dirs"
     unset VIMINIT EXINIT VIM VIMRUNTIME NVIM_APPNAME NVIM_RPLUGIN_MANIFEST

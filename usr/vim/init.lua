@@ -644,22 +644,153 @@ vim.lsp.config("lua_ls", {
     end
   end,
 })
-vim.lsp.config("metals", {
-  cmd = { vim.fn.exepath("metals") },
-  root_markers = {
-    "build.sbt", "build.sc", "pom.xml", "build.gradle", "build.gradle.kts",
-    ".bsp", ".metals", ".bloop", ".git",
-  },
-  init_options = { statusBarProvider = "off" },
-})
-vim.api.nvim_create_user_command("MetalsImportBuild", function()
-  local clients = vim.lsp.get_clients({ bufnr = 0, name = "metals" })
-  if not clients[1] then
-    vim.notify("Open a Scala file in a build.sbt/build.sc/pom.xml project first", vim.log.levels.WARN)
+local metals = require("metals")
+local metals_base_config = metals.bare_config()
+metals_base_config.capabilities = require("blink.cmp").get_lsp_capabilities()
+metals_base_config.init_options.statusBarProvider = "off"
+metals_base_config.init_options.bspStatusBarProvider = "off"
+metals_base_config.settings = {
+  useGlobalExecutable = true,
+  automaticImportBuild = "initial",
+  enableBestEffort = true,
+  fallbackScalaVersion = "2.13.18",
+  showImplicitArguments = true,
+  showImplicitConversionsAndClasses = true,
+  showInferredType = true,
+  superMethodLensesEnabled = true,
+}
+metals_base_config.root_patterns = {
+  "build.sc", "build.mill", "build.sbt", "pom.xml",
+  "settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts",
+  ".bsp", ".git",
+}
+metals_base_config.find_root_dir_max_project_nesting = 8
+
+local function mill_bloop_needs_import(root)
+  local build_time = 0
+  for _, name in ipairs({ "build.sc", "build.mill", ".mill-version" }) do
+    local stat = vim.uv.fs_stat(root .. "/" .. name)
+    if stat then build_time = math.max(build_time, stat.mtime.sec) end
+  end
+  local newest_config = 0
+  for _, path in ipairs(vim.fn.glob(root .. "/.bloop/*.json", false, true)) do
+    if vim.fn.fnamemodify(path, ":t") ~= "bloop.settings.json" then
+      local stat = vim.uv.fs_stat(path)
+      if stat then newest_config = math.max(newest_config, stat.mtime.sec) end
+    end
+  end
+  return newest_config == 0 or build_time > newest_config
+end
+
+local function metals_project_config(bufnr)
+  local config = vim.deepcopy(metals_base_config)
+  local root = vim.fs.root(bufnr, config.root_patterns)
+  if not root then
+    return config
+  end
+
+  -- Pin the exact workspace root. This avoids a nested Scala source being
+  -- attached to an unrelated parent repository or a stale Metals workspace.
+  config.settings.customProjectRoot = root
+  if vim.uv.fs_stat(root .. "/build.sc") or vim.uv.fs_stat(root .. "/build.mill") then
+    config.settings.targetBuildTool = "mill"
+    config.settings.defaultBspToBuildTool = false
+    config.settings.automaticImportBuild = "off"
+    local bsp_config = root .. "/.bsp/mill-bsp.json"
+    if vim.fn.filereadable(bsp_config) == 1 then
+      local ok, bsp = pcall(vim.json.decode, table.concat(vim.fn.readfile(bsp_config), "\n"))
+      local executable = ok and type(bsp) == "table" and type(bsp.argv) == "table" and bsp.argv[1]
+      if type(executable) == "string" and vim.fn.executable(executable) == 1 then
+        config.settings.millScript = executable
+      end
+    end
+    if not config.settings.millScript and vim.fn.executable(root .. "/mill") == 1 then
+      config.settings.millScript = root .. "/mill"
+    end
+  elseif vim.uv.fs_stat(root .. "/build.sbt") then
+    config.settings.targetBuildTool = "sbt"
+  elseif vim.uv.fs_stat(root .. "/pom.xml") then
+    config.settings.targetBuildTool = "maven"
+  elseif vim.uv.fs_stat(root .. "/settings.gradle")
+      or vim.uv.fs_stat(root .. "/settings.gradle.kts")
+      or vim.uv.fs_stat(root .. "/build.gradle")
+      or vim.uv.fs_stat(root .. "/build.gradle.kts") then
+    config.settings.targetBuildTool = "gradle"
+  end
+  return config
+end
+
+local mill_import_jobs = {}
+local function attach_metals(bufnr)
+  if not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then return end
+  vim.api.nvim_buf_call(bufnr, function()
+    metals.initialize_or_attach(metals_project_config(bufnr))
+  end)
+end
+
+local function start_metals(bufnr)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  if not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then
     return
   end
-  clients[1]:exec_cmd({ command = "build-import" }, { bufnr = 0 })
-end, { desc = "Import Scala project build into Metals" })
+  local config = metals_project_config(bufnr)
+  local root = config.settings.customProjectRoot
+  if config.settings.targetBuildTool ~= "mill" or not root then
+    attach_metals(bufnr)
+    return
+  end
+  if mill_import_jobs[root] then
+    mill_import_jobs[root][bufnr] = true
+    return
+  end
+  if not mill_bloop_needs_import(root) then
+    attach_metals(bufnr)
+    return
+  end
+
+  local mill = config.settings.millScript or vim.fn.exepath("mill")
+  if mill == "" then
+    vim.notify("Metals: Mill executable not found for " .. root, vim.log.levels.ERROR)
+    return
+  end
+  mill_import_jobs[root] = { [bufnr] = true }
+  vim.notify("Metals: exporting Mill build to Bloop before LSP startup", vim.log.levels.INFO)
+  vim.system({ mill, "--import", "ivy:com.lihaoyi::mill-contrib-bloop:",
+    "mill.contrib.bloop.Bloop/install" }, { cwd = root, text = true }, function(result)
+    vim.schedule(function()
+      local buffers = mill_import_jobs[root] or {}
+      mill_import_jobs[root] = nil
+      if result.code ~= 0 then
+        local detail = (result.stderr or result.stdout or ""):sub(-1200)
+        vim.notify("Metals: Mill Bloop export failed: " .. detail, vim.log.levels.ERROR)
+        return
+      end
+      for pending_buf in pairs(buffers) do attach_metals(pending_buf) end
+    end)
+  end)
+end
+
+local metals_group = vim.api.nvim_create_augroup("nvim_metals", { clear = true })
+vim.api.nvim_create_autocmd("FileType", {
+  group = metals_group,
+  pattern = { "scala", "sbt", "java" },
+  callback = function(event)
+    start_metals(event.buf)
+  end,
+})
+
+-- Session restore can create a Scala buffer before all restoration callbacks
+-- settle. Re-check loaded buffers once so every restored Scala window attaches.
+vim.schedule(function()
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(bufnr) then
+      local filetype = vim.bo[bufnr].filetype
+      if filetype == "scala" or filetype == "sbt" or filetype == "java" then
+        start_metals(bufnr)
+      end
+    end
+  end
+end)
 if vim.fn.exists(":LspInfo") == 0 then
   vim.api.nvim_create_user_command("LspInfo", function()
     vim.cmd("checkhealth vim.lsp")
@@ -688,7 +819,7 @@ vim.api.nvim_create_autocmd("FileType", {
 })
 for _, server in ipairs({
   "nil_ls", "lua_ls", "bashls", "clangd", "pyright", "rust_analyzer",
-  "marksman", "html", "cssls", "jsonls", "ts_ls", "metals", "gopls",
+  "marksman", "html", "cssls", "jsonls", "ts_ls", "gopls",
 }) do
   vim.lsp.enable(server)
 end

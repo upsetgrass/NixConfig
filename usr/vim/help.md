@@ -38,7 +38,13 @@
 # LSP
 - `:LspInfo`: 查看 LSP 状态
 - metal
-  - `:MetalsImportBuild` Scala 项目,导入构建，让 Metals 索引项目
+  - 首次打开 Scala/Chisel 项目会自动导入；同时有 `build.sc` 和 `build.sbt` 时优先 Mill，并用 Bloop 建语义索引
+  - `:MetalsImportBuild` 重新导入构建，让 Metals 更新项目索引
+  - `:MetalsInfo` 查看当前工作区、构建工具和连接状态
+  - `:MetalsRunDoctor` 检查项目导入和索引问题
+  - `:MetalsSwitchBsp` Mill 项目还连 Mill BSP 时切换到 Bloop
+  - `:MetalsResetWorkspace` 清除损坏的旧索引并重新导入
+  - `:MetalsRestartMetals` Bloop 连接失败或导入完成后重启 Metals
   - `:MetalsLog`: 查看项目日志（`q` 关闭，`:edit!` 刷新）
   - 日志出现 `BSP ... Compilation failed` 表示项目构建定义报错，不是 Metals 未启动
 - `gd` / `Ctrl-Enter`  跳转符号定义；LSP 无结果时搜索项目文本

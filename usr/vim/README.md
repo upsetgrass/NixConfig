@@ -6,7 +6,7 @@
 vim 文件名
 ```
 
-这个 shell 中的 `vim` 是 Nix 构建的 Neovim。它使用临时的 XDG 配置、数据、状态和缓存目录，不读取外部 Vim/Neovim 配置；退出后临时目录会清理。`<leader>` 默认为空格键。
+这个 shell 中的 `vim` 是 Nix 构建的 Neovim。它使用临时的 XDG 配置与状态目录，不读取外部 Vim/Neovim 配置；退出后这些临时目录会清理。专用数据目录 `~/.local/share/nvim-nix/` 与下载缓存 `~/.cache/nvim-nix/` 会保留，使 Bloop 后台进程及项目 `.bsp` 中的构建工具路径在下次启动时仍有效。`<leader>` 默认为空格键。
 
 ## 快捷键
 
@@ -71,7 +71,7 @@ vim 文件名
 
 在任意窗格输入 `:q` 或 `:qw` 都会退出整个 Neovim，而不必逐个关闭两侧树。`:q` 遇到未保存文件会阻止退出；`:qw` 会先保存所有已修改文件。`:q!` 和 `:qw!` 可强制退出。
 
-Scala 已加入 Treesitter parser 和 Metals LSP。即使项目没有成功导入，右侧大纲也会通过 Treesitter 显示 `trait`、`object`、`class`、`def` 等结构；进入包含 `build.sbt`、`build.sc` 或 `pom.xml` 的项目后，Metals 才能进一步提供跨文件类关系、定义跳转和引用查找。第一次启动 Metals 可能需要下载项目依赖。
+Scala 已加入 Treesitter parser 和专用的 `nvim-metals` 客户端。即使项目没有成功导入，右侧大纲也会通过 Treesitter 显示 `trait`、`object`、`class`、`def` 等结构；进入 Scala 项目后，Metals 才能进一步提供跨文件类关系、定义跳转和引用查找。第一次启动 Metals 可能需要下载项目依赖。
 
 大纲展示的是**当前文件内**的符号层级，不是整个项目的继承关系图。查跨文件父类或调用点请用 `Ctrl-Enter` / `Ctrl-Space`；`:LspInfo` 可确认 Metals 是否已连接。
 
@@ -146,7 +146,7 @@ Java、C#、PHP、Ruby、Zig、Verilog/SystemVerilog、YAML 和 TOML 当前已�
 | 语言 | 服务器与项目要求 |
 | --- | --- |
 | C / C++ | `clangd`，开启后台索引和 clang-tidy。项目应提供 `compile_commands.json`，包含真实的头文件路径和编译参数；CMake 项目可用 `cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON` 生成。其他构建目录可在 `.clangd` 中设置 `CompileFlags.CompilationDatabase`。 |
-| Scala / Chisel | `metals`，识别 `build.sbt`、`build.sc`、Gradle、Maven、`.bsp`、`.metals`、`.bloop` 或 Git 项目根目录。打开 Scala 文件后接受构建导入提示，或执行 `:MetalsImportBuild` 手动导入；需要 JDK、项目构建工具及依赖下载可用。Chisel 的跳转按 Scala 项目处理。 |
+| Scala / Chisel | `nvim-metals` + `metals`。自动识别 Mill、SBT、Gradle、Maven 和 BSP；同一项目同时存在 `build.sc` 与 `build.sbt` 时优先 Mill。Mill 项目用固定的项目 Mill 版本导出 Bloop 构建配置，以便生成跨文件引用所需的 SemanticDB。首次打开自动导入构建，也可执行 `:MetalsImportBuild` 手动重导。Chisel 按 Scala 语义索引。 |
 | Lua | `lua-language-server`，支持普通 Lua 文件。项目可用 `.luarc.json` / `.luarc.jsonc` 指定运行时和库；本配置目录没有这类文件时自动识别 Neovim 的 LuaJIT 和 `vim` API。 |
 | Nix / Shell / Python / Rust / Go | 分别使用 `nil`、`bash-language-server`、`pyright`、`rust-analyzer`、`gopls`。项目根目录由对应语言的常见项目文件或 `.git` 判断。 |
 | Markdown / HTML / CSS / JSON | 分别使用 `marksman` 和 VS Code language servers，提供文档符号、补全、诊断及可用的跳转能力。 |
@@ -159,4 +159,6 @@ Java、C#、PHP、Ruby、Zig、Verilog/SystemVerilog、YAML 和 TOML 当前已�
 
 所有已安装 Treesitter parser 的常用语言均使用统一的高对比配色，区分关键字、类型、函数、字符串、数字、参数、成员和注释；LSP 语义类型与语法高亮保持一致。语法高亮不依赖项目构建导入是否成功。
 
-Metals 能连接但跳转不完整时，先执行 `:MetalsLog`。如果日志中出现 `BSP server ... compile Compilation failed`，说明 Neovim 和 Metals 已正常启动，但项目的 SBT/Mill/Gradle/Maven 构建定义自身无法编译；需要先修复构建错误，再执行 `:MetalsImportBuild` 或重新打开项目。
+Metals 能连接但跳转不完整时，先执行 `:MetalsLog`。可用 `:MetalsInfo` 查看当前工作区和构建服务器，`:MetalsRunDoctor` 检查导入状态，`:MetalsImportBuild` 重新导入构建。若 Mill 项目仍连 Mill BSP，执行 `:MetalsSwitchBsp` 并选择 Bloop；若旧索引已损坏，用 `:MetalsResetWorkspace` 清理工作区并重建。`.metals/` 和 `.bloop/` 是项目级生成状态，重置后首次导入可能花几分钟。如果日志中出现 `BSP server ... compile Compilation failed`，说明项目构建目标自身有编译错误，需先修复相关源码。
+
+Mill 的构建文件比 `.bloop` 配置新时，本环境先在后台完成 Bloop 导出，再启动 Metals，避免 Bloop 读入旧配置。若出现 `Failed to connect with build server`，先看 `:MetalsLog`；确认导出完成后执行 `:MetalsRestartMetals`，或退出后重新进入。`gd` 有时能在索引未完成时猜到定义，但 `gr` 必须等相关 target 编译并生成 SemanticDB；如果日志报告 `Compilation failed`，先修复报错源码。
