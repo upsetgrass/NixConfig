@@ -53,6 +53,20 @@ require("onedark").setup({
 require("onedark").load()
 vim.opt.signcolumn = "yes"
 vim.opt.cursorline = true
+vim.opt.guicursor = {
+  "n-v-c-sm:block-Cursor/lCursor-blinkwait200-blinkon450-blinkoff450",
+  "i-ci-ve:ver30-Cursor/lCursor-blinkwait200-blinkon450-blinkoff450",
+  "r-cr-o:hor20-Cursor/lCursor-blinkwait200-blinkon450-blinkoff450",
+  "t:block-TermCursor/lCursor-blinkwait200-blinkon450-blinkoff450",
+}
+local function highlight_cursor()
+  local style = { fg = "#15171c", bg = "#f3d36a" }
+  for _, name in ipairs({ "Cursor", "lCursor", "TermCursor" }) do
+    vim.api.nvim_set_hl(0, name, style)
+  end
+end
+highlight_cursor()
+vim.api.nvim_create_autocmd("ColorScheme", { callback = highlight_cursor })
 vim.opt.scrolloff = 8
 vim.opt.wrap = false
 vim.opt.splitright = true

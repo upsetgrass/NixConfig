@@ -2,7 +2,7 @@
 
 let
   proxyUrl = "http://127.0.0.1:7897";
-  noProxy = "localhost,127.0.0.1,192.168.0.0/16";
+  noProxy = "localhost,127.0.0.1,192.168.0.0/16,i.ai901.top";
 in
 {
   # 登录环境变量由 Home Manager 统一生成到 hm-session-vars.sh。
