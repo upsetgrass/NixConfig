@@ -1,6 +1,7 @@
 # Pi Home Manager 配置
 
-Pi 和 Node.js 由 `usr/packages.nix` 安装。应用配置：
+Pi 和 Node.js 由 `usr/packages.nix` 安装。Pi 1.5.2 在 `resume-package.nix`
+中单独固定，不改变其他软件使用的 Nixpkgs 版本。应用配置：
 
 ```bash
 home-manager switch
@@ -10,7 +11,8 @@ pi --list-models ai901
 Home Manager 管理：
 
 - `~/.pi/agent/keybindings.json`
-- `~/.pi/agent/skills/memory`
+- `~/.pi/agent/extensions/plan-mode`
+- `~/.pi/agent/skills/memory`、`~/.pi/agent/skills/systematic-debugging`
 - `pi-import-codex`、`pi-install-plugins` 两个命令
 
 ## 键位
@@ -31,6 +33,14 @@ Home Manager 管理：
   或 VTE ≥ 0.76 的终端（新版 GNOME Console、Ptyxis 等）。
 - `Ctrl+J` 在任何终端都能换行，是当前机器上最可靠的键。
 - 改完 `keybindings.json` 后在 Pi 里执行 `/reload`，用 `/hotkeys` 查看生效结果。
+- `/hotkeys` 的 `Action` 列和内置动作说明由 `localize-hotkeys.mjs` 翻译为中文；
+  快捷键和扩展提供的说明保持原样。修改翻译后需重新构建并启动 Pi。
+
+## 计划模式
+
+Home Manager 自动加载 Pi 包随附的官方 Plan Mode 扩展，无需通过 npm 安装。
+运行 `home-manager switch` 后，已打开的会话可用 `/reload` 加载扩展。
+新会话默认不开启计划模式；用 `/plan` 在当前会话中开启或关闭。
 
 ## 插件（Pi packages）
 
@@ -40,21 +50,27 @@ Home Manager 管理：
 |---|---|
 | `npm:@josephakern/pi-memory@0.3.0` | AI 记忆：`MEMORY.md` 索引 + 按需读取的 topic 文件（本机由 `/skill:memory` 或「记住…」触发） |
 | `npm:pi-language-tutor@0.5.1` | 语言学习助教：后台批改你提示词里的拼写/语法/措辞，并把助手回复双语翻译 |
+| `npm:@laboon85/pi-arxiv@0.1.6` | 阅读公开 arXiv 论文；LaTeX 转 Markdown 需要 `pandoc`，PDF 页文本和图片功能可用 Poppler |
+| `npm:pi-web-access@0.48.0` | 网页搜索与正文提取 |
+| `npm:pi-open-tui@0.4.6` | 定制终端界面，用 `/open-tui` 打开设置；图标缺字时在 Appearance → Icons 选 `unicode` |
 
-Pi 的插件清单存在本机 `~/.pi/agent/settings.json` 的 `packages` 字段里（该文件
-含 `httpProxy` 等本机设置，所以不入库）。换机器或重装后一条命令按固定版本恢复：
-
-```bash
-pi-install-plugins   # = pi install 上面每个包，然后 pi list
-```
-
-日常增删插件仍然用 Pi 自带命令，装完记得把版本同步进 `home.nix` 的 `piPlugins`：
+Pi 的插件清单存在本机 `~/.pi/agent/settings.json` 的 `packages` 字段里（该文件含 `httpProxy` 等本机设置，所以不入库）。
+新增 npm 包时，在 `piPlugins` 的中括号内加一行 `"npm:包名@版本"` 或
+`"npm:@组织/包名@版本"`（行尾不加逗号），再执行：
 
 ```bash
-pi install npm:<包名>@<版本>
-pi remove npm:<包名>
-pi list
+home-manager switch
+pi-install-plugins
 ```
+
+这个脚本只安装清单中的包，不会卸载清单之外的包。要移除 npm 包，先从
+`piPlugins` 删除对应项，再用 `pi remove npm:包名` 更新 Pi 本机的配置并卸载；
+如果原来是通过 `pi install -l` 安装的，就在相同项目里用 `pi remove -l npm:包名`。
+用 `pi list` 检查结果，已打开的会话执行 `/reload` 加载变更。
+
+纯 skill 不需要走 npm 安装脚本。例如 `systematic-debugging` 固定到上游
+Superpowers 的源码版本，由 Home Manager 链接到用户 skills 目录，只加载这一个
+skill。启用后可用 `/skill:systematic-debugging` 显式调用。
 
 ### 去哪里找 Pi 插件
 
@@ -67,7 +83,12 @@ pi list
 
 装第三方包前先看源码：包里的扩展代码会执行，skill 还能让模型跑命令。
 
-## 会话选择器排序
+## 会话选择器
+
+`resume-package.nix` 让 `/resume` 和 `pi --resume` 的列表随终端高度变化，
+不再固定为最多 10 条。原有的搜索、排序、翻页和目录切换不变。
+修改后运行 `home-manager switch`，再启动新的 Pi 进程。升级 Pi 时如果
+构建提示找不到选择器，请检查上游实现并更新或移除本地补丁。
 
 `/resume`（或 `pi --resume`）默认按 **Threaded**（按 fork 家族分组）排序。
 Pi 1.4.0/1.5.2 **没有**可以写进配置的排序项，排序状态也不持久化，

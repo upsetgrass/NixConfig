@@ -3,7 +3,7 @@
 pkgs.mkShell {
   packages = with pkgs; [
     nodejs_24
-    pi-coding-agent
+    (import ./resume-package.nix { inherit pkgs; })
   ];
 
   # Expose the repo-managed memory skill to pi. The symlink points at the
