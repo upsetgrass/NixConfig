@@ -44,6 +44,9 @@ in
   '';
 
   # 含密钥的 settings.json/models.json 保留为本机文件。
+  # 所有 Pi 会话都遵守 Git 写操作显式授权规则（非权限沙箱）。
+  home.file.".pi/agent/APPEND_SYSTEM.md".source = ./APPEND_SYSTEM.md;
+
   home.file.".pi/agent/keybindings.json" = {
     source = ./keybindings.json;
     force = true;
@@ -54,6 +57,9 @@ in
 
   home.file.".pi/agent/skills/systematic-debugging".source =
     "${superpowers}/skills/systematic-debugging";
+
+  # 经本地修改的 ub-mode：保留开发流程，不自动执行 Git 写操作。
+  home.file.".pi/agent/skills/ub-mode".source = ./skills/ub-mode;
 
   home.file.".pi/agent/skills/memory" = {
     source = ./skills/memory;

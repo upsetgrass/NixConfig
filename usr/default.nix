@@ -9,6 +9,7 @@ in
   imports = [
     ./packages.nix
     ./environment.nix
+    ./screenshot/home.nix
     ./fcitx5/home.nix
     ./pi/home.nix
   ];

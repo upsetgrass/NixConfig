@@ -12,7 +12,8 @@ Home Manager 管理：
 
 - `~/.pi/agent/keybindings.json`
 - `~/.pi/agent/extensions/plan-mode`
-- `~/.pi/agent/skills/memory`、`~/.pi/agent/skills/systematic-debugging`
+- `~/.pi/agent/APPEND_SYSTEM.md`（所有会话的 Git 写操作显式授权规则）
+- `~/.pi/agent/skills/memory`、`~/.pi/agent/skills/systematic-debugging`、`~/.pi/agent/skills/ub-mode`
 - `pi-import-codex`、`pi-install-plugins` 两个命令
 
 ## 键位
@@ -71,6 +72,17 @@ pi-install-plugins
 纯 skill 不需要走 npm 安装脚本。例如 `systematic-debugging` 固定到上游
 Superpowers 的源码版本，由 Home Manager 链接到用户 skills 目录，只加载这一个
 skill。启用后可用 `/skill:systematic-debugging` 显式调用。
+
+`ub-mode` 是从 unclebob/ub-mode 的提交
+`3da62bf3fcfd2034de41f30d920d2739e566171f` 本地改写的独立 skill，
+其内容在 `usr/pi/skills/ub-mode/SKILL.md`，按上游 MIT 许可保留 LICENSE。
+只安装这个 skill，不加入 npm 的 `piPlugins` 列表。运行 `home-manager switch`
+后，在已有会话执行 `/reload`，用 `/skill:ub-mode` 显式调用。
+本地版本保留「先做出来、再做对、按良好实践交付」的流程，但不自动进行
+`git add/commit/push` 或其他 Git 写操作；只有用户明确要求**执行某一项具体操作**
+时才可执行。询问“该如何做”只提供说明，不执行命令；获准提交不等于获准推送。
+全局 `APPEND_SYSTEM.md` 同样规定了此行为，以覆盖不加载该 skill 的任务。
+这些是提示词约束，不是 Git 写入的技术性拦截或安全沙箱。
 
 ### 去哪里找 Pi 插件
 
