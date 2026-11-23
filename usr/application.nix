@@ -15,6 +15,7 @@ pkgs.mkShell {
     lazygit
     htop
     gparted
+    yosys
     # dingdingTalk
     # weChat
     # vscode

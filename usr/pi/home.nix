@@ -36,9 +36,15 @@ in
     '')
   ];
 
-  # Pi reloads models.json when /model opens and resolves !commands at request
-  # time. Merge only the credential source into the user's private models.json.
-  home.activation.deepseekPiAuth = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+  # Keep credentials private; merge only the public model catalog into the
+  # user's writable models.json. Pi reloads it whenever /model opens.
+  home.activation.piModelCatalog = lib.hm.dag.entryAfter [ "linkGeneration" ] ''
+    ${pkgs.bash}/bin/bash ${./configure-models.sh} \
+      ${pkgs.jq}/bin/jq ${pkgs.coreutils}/bin ${./models.json} ${pkgs.diffutils}/bin/cmp
+  '';
+
+  # Merge the credential source after the public catalog has been applied.
+  home.activation.deepseekPiAuth = lib.hm.dag.entryAfter [ "piModelCatalog" ] ''
     ${pkgs.bash}/bin/bash ${./configure-deepseek.sh} \
       ${pkgs.jq}/bin/jq ${pkgs.coreutils}/bin
   '';

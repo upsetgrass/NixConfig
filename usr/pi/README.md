@@ -112,8 +112,36 @@ Pi 1.4.0/1.5.2 **没有**可以写进配置的排序项，排序状态也不持�
 想要「一打开就按时间排」，目前只能在选择器里按一次 `Ctrl+S`。
 
 `auth.json`、`models.json` 和 `settings.json` 可能包含 API key、代理或本机模型，
-继续保留为本机文件，不应复制进 Git 或 Nix Store。Pi 的 Home Manager activation
-只向本机 `models.json` 的 `deepseek` provider 写入读取密钥文件的命令。
+继续保留为本机文件，不应复制进 Git 或 Nix Store。Home Manager activation
+将 `usr/pi/models.json` 的公开模型清单合并到本机 `models.json`，保留已有
+provider、凭据、连接设置和清单之外的模型；同 ID 的模型由仓库声明的元数据
+覆盖，其他本机字段保留。随后写入 DeepSeek 的密钥读取命令。
+
+## 中转站模型清单
+
+`usr/pi/models.json` 管理 AI901 的公开模型配置，不包含 API Key。
+运行 `home-manager switch` 后，已有会话重新打开 `/model` 即可加载，
+不改变当前会话模型或新会话默认模型。
+
+已加入通过 AI901 `/v1/models` 确认存在的 `gpt-6.2-astra`、`gpt-6.2-sol`、
+`claude-opus-5-5` 和 `claude-haiku-4-5-20251001`。当前按类别保留的强/快候选为：
+
+| 类别 | 偏能力 | 偏速度 | 选择依据 |
+|---|---|---|---|
+| Anthropic | `claude-opus-5-5` | `claude-haiku-4-5-20251001` | 按 Opus / Haiku 产品档位推断；未做实测基准 |
+| OpenAI | `gpt-6.2-astra` | `gpt-6.2-sol` | 按 Astra / Sol 名称推断；中转站没有提供速度或能力元数据 |
+| DeepSeek | `deepseek-v4.1-flash` | `deepseek-flash` | 保留现有 V4.1 / Flash 条目；速度和效果尚未实测 |
+
+以上只是按型号命名和家族定位做的候选，不代表已验证的跑分或延迟。
+截图里的 GPT Image 与 Seedance 属于图像/视频生成，不加入这份用于对话的
+OpenAI Responses 模型清单。新增的 Claude 与 GPT-6.2 条目没有服务端能力元数据，
+因此沿用 Pi 默认上下文、输出上限和文本输入配置；`reasoning: true` 也仅表示
+允许 Pi 提供推理档位，具体是否支持取决于中转站。
+
+以后中转站新增模型，在 `providers.ai901.models` 中加入对应条目，再运行
+`home-manager switch`。Pi 不会自动发现自定义中转站的新模型，
+`pi update --models` 只更新 Pi 自带的模型目录。不要把本机含密钥的
+`~/.pi/agent/models.json` 复制回仓库。
 
 可以通过 `/skill:memory` 显式加载 memory skill，或直接要求 Pi 记住长期信息。
 
