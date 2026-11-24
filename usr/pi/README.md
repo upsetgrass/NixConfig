@@ -12,6 +12,7 @@ Home Manager 管理：
 
 - `~/.pi/agent/keybindings.json`
 - `~/.pi/agent/extensions/plan-mode`
+- `~/.pi/agent/extensions/tab-status.ts`（终端标签状态）
 - `~/.pi/agent/APPEND_SYSTEM.md`（所有会话的 Git 写操作显式授权规则）
 - `~/.pi/agent/skills/memory`、`~/.pi/agent/skills/systematic-debugging`、`~/.pi/agent/skills/ub-mode`
 - `pi-import-codex`、`pi-install-plugins` 两个命令
@@ -36,6 +37,29 @@ Home Manager 管理：
 - 改完 `keybindings.json` 后在 Pi 里执行 `/reload`，用 `/hotkeys` 查看生效结果。
 - `/hotkeys` 的 `Action` 列和内置动作说明由 `localize-hotkeys.mjs` 翻译为中文；
   快捷键和扩展提供的说明保持原样。修改翻译后需重新构建并启动 Pi。
+
+## 终端标签状态
+
+`extensions/tab-status.ts` 让 GNOME Terminal 等支持动态标题的终端显示
+`[状态] π · 会话名 · 目录`，不依赖 Nerd Font。应用 Home Manager 后，
+已打开的每个 Pi 会话各自运行 `/reload`。
+
+| 状态 | 触发 |
+|---|---|
+| 待命 | 启动、重载或用 Esc 中断任务 |
+| 运行中 | AI 开始处理任务（包含工具调用；等待模型响应仍算运行） |
+| 待反馈 | 扩展的选择、确认、输入等阻塞式弹窗；关闭后恢复原状态 |
+| 已完成 | `agent_settled`，即重试和排队任务都结束 |
+| 出错 | 最后一次助手响应报错且任务结束 |
+| 已挂起 | 默认 Ctrl+Z 作业挂起；`fg` 恢复时显示挂起前的状态 |
+| 已退出 | 退出 Pi（Shell 可能随后接管标题） |
+
+普通回复里的“请确认”没有结构化等待事件，会显示已完成；扩展必须使用
+Pi 的阻塞 UI 接口才能显示待反馈。Ctrl+Z 只监听 Pi 的挂起快捷键，不接管
+SIGTSTP 或改变作业控制；外部 SIGSTOP 等硬暂停无法预先更新标题。
+若终端将标签标题固定为手动文本，需要恢复动态标题。
+
+验证状态转换：`node --experimental-strip-types usr/pi/extensions/tab-status.test.mjs`。
 
 ## 计划模式
 

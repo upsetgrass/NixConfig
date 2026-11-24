@@ -61,6 +61,9 @@ in
   home.file.".pi/agent/extensions/plan-mode".source =
     "${pi}/lib/node_modules/pi-monorepo/examples/extensions/plan-mode";
 
+  # GNOME Terminal 标签显示 Pi 会话运行、待反馈和完成状态。
+  home.file.".pi/agent/extensions/tab-status.ts".source = ./extensions/tab-status.ts;
+
   home.file.".pi/agent/skills/systematic-debugging".source =
     "${superpowers}/skills/systematic-debugging";
 

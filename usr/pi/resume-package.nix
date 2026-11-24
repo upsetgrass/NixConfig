@@ -20,8 +20,8 @@ let
       hash = "sha256-1XFe+oNMI7/fEKBCtJ307hacyZAAvxbXmY+rLVM7Rfg=";
     };
     postInstall = builtins.replaceStrings
-      [ "@earendil-works/pi-mcp:packages/mcp" "-type l -lname '*/packages/*' -delete" ]
-      [ "@earendil-works/pi-schema:packages/schema @earendil-works/pi-mcp:packages/mcp" "-type l \\( -lname '*/packages/*' -o -lname '*/apps/*' \\) -delete" ]
+      [ "@earendil-works/pi-mcp:packages/mcp" "-type l -lname '*/packages/*' -delete" ''rm "$nm/$pkg"'' ]
+      [ "@earendil-works/pi-schema:packages/schema @earendil-works/pi-mcp:packages/mcp" "-type l \\( -lname '*/packages/*' -o -lname '*/apps/*' \\) -delete" ''rm -rf -- "$nm/$pkg"'' ]
       previous.postInstall;
   });
   # Leave room for the search box, borders, scroll count, and standard footer.
